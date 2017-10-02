@@ -1,0 +1,6 @@
+{
+    "name": "Ethereum",
+    "symbol": "ETH",
+    "algorithm": "dagger",
+    "normalHashing": true
+}

@@ -1,0 +1,27 @@
+              <div class="col-sm-12">
+                <div class="card-box" id="tblpayouts">
+                  <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                    <thead>
+                      <tr>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">User</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">Wallet</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Total amount</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Payout</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Comission</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Bills</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Pay</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payouts">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+ 
+              <script src="/static/payouts.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Pauouts');
+                });
+              </script>
+

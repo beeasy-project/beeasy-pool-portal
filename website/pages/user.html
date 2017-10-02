@@ -1,0 +1,129 @@
+              <style>
+                #topCharts{
+                    padding: 18px;
+                    height: 480px;
+                }
+                #topCharts > div > div > svg{
+                    display: block;
+                    height: 480px;
+                    width: 50%;
+                }
+                .chartWrapper{
+                    border: solid 1px #c7c7c7;
+                    border-radius: 5px;
+                    padding: 5px;
+                    margin-bottom: 18px;
+                }
+                .chartLabel{
+                    font-size: 1.2em;
+                    text-align: center;
+                    padding: 4px;
+                }
+                .chartHolder{
+                    height : 480px;
+                    display : block;
+                }
+                #walletsForm input{
+                    width : 500px;
+                }
+              </style>           
+
+              <div class="col-md-12">
+                <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Farms</h3>
+                  </div>
+                  <div class="panel-body" id="tblfarms">
+                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                      <thead>
+                        <tr>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Name</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">IP</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU Hashrate</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Temperature</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Fan</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Now mining</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Switch to</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="8">Management</th>
+                        </tr>
+                      </thead>
+                      <tbody id="farms">
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="panel panel-border panel-custom card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Graphs</h3>
+                  </div>
+                  <div class="panel-body topCharts">
+                    <div class="chartWrapper" id="poolHashrateCnt">
+                      <div class="chartLabel">Hashrate</div>
+                      <div class="chartHolder"><svg id="userHashrate"></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="panel panel-border panel-pink card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Balance</h3>
+                  </div>
+                  <div class="panel-body">                
+                    <div id="balance">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Last transactions</h3>
+                  </div>
+                  <div class="panel-body" id="tbltrans">
+                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                      <thead>
+                        <tr>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Coin</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Tx</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Wallet</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">Amount</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Payoff amount</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody id="lastpayoutsdata">
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="panel panel-border panel-warning card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Telegram</h3>
+                  </div>
+                  <div class="panel-body"> 
+                    <p class="header-title m-b-30" id="telegram"></p>
+                  </div>
+                </div>
+              </div>
+
+              <script src="/static/user.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Dashboard');
+                  document.querySelector('body').appendChild(document.createElement('script')).src = '/static/userstats.js';
+                });
+              </script>

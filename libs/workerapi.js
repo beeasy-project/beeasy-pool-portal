@@ -12,7 +12,7 @@ function workerapi(listen) {
 	};
 
 	var lastEvents = {
-		lastValidShare   : 0 ,
+		lastValidShare   : 0,
 		lastValidBlock   : 0,
 		lastInvalidShare : 0
 	};
@@ -33,7 +33,7 @@ function workerapi(listen) {
 				console.log("LISTENING ");
 			});
 		})
-		.on('share', function(isValidShare, isValidBlock, shareData) {
+		.on('share', function(isValidShare, isValidBlock, isBlock, shareData) {
 			var now = Date.now();
 			if (isValidShare) {
 				counters.validShares ++;

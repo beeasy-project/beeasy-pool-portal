@@ -1,6 +1,8 @@
 var Stratum = require('stratum-pool');
 var redis   = require('redis');
 var net     = require('net');
+var minerapi = require('./apiClaymore.js');
+var crypto = require('crypto');
 
 var MposCompatibility = require('./mposCompatibility.js');
 var ShareProcessor = require('./shareProcessor.js');
@@ -23,7 +25,17 @@ module.exports = function(logger){
     //Handle messages from master process sent via IPC
     process.on('message', function(message) {
         switch(message.type){
+            case 'minerstat':
+                for( var p in pools)
+                {
 
+                    if( pools[p].stratumServer )
+                        var clients = pools[p].stratumServer.getStratumClients();
+                    for( var c in clients )
+                        if( clients[c].getLabel() === message.client || clients[c].Name === message.client)
+                            clients[c].stat = message.stat;
+                }
+                break;
             case 'banIP':
                 for (var p in pools){
                     if (pools[p].stratumServer)
@@ -134,7 +146,7 @@ module.exports = function(logger){
                 if (poolOptions.validateWorkerUsername !== true)
                     authCallback(true);
                 else {
-                    if (workerName.length === 40) {
+                    if (workerName.length === 40 ){
                         try {
                             new Buffer(workerName, 'hex');
                             authCallback(true);
@@ -142,21 +154,34 @@ module.exports = function(logger){
                         catch (e) {
                             authCallback(false);
                         }
-                    }
-                    else {
-                        pool.daemon.cmd('validateaddress', [workerName], function (results) {
-                            var isValid = results.filter(function (r) {
-                                return r.response.isvalid
-                            }).length > 0;
-                            authCallback(isValid);
+                    } else if(workerName.length ===  42 && workerName.substr(0, 2) == "0x" )
+                    {
+                        try {
+                            new Buffer(workerName.substr(2), 'hex');
+                            authCallback(true);
+                        }
+                        catch (e) {
+                            authCallback(false);
+                        }
+                    }else {
+                        var clientname = workerName;
+                        if( workerName.indexOf("/") != -1 )
+                        {
+                            clientname = workerName.substr(0, workerName.indexOf("/"));
+                        }
+                        redisClient.hget("users", clientname, function(err, result) {
+                            if( err ) {
+                                authCallback(false);
+                                return;
+                            }
+                            authCallback(true);
                         });
                     }
-
                 }
             };
 
-            handlers.share = function(isValidShare, isValidBlock, data){
-                shareProcessor.handleShare(isValidShare, isValidBlock, data);
+            handlers.share = function(isValidShare, isValidBlock, isBlock,  data){
+                shareProcessor.handleShare(isValidShare, isValidBlock, isBlock, data);
             };
         }
 
@@ -176,29 +201,77 @@ module.exports = function(logger){
 
 
         var pool = Stratum.createPool(poolOptions, authorizeFN, logger);
-        pool.on('share', function(isValidShare, isValidBlock, data){
+        pool.on('share', function(isValidShare, isValidBlock, isBlock,  data) {
 
             var shareData = JSON.stringify(data);
 
-            if (data.blockHash && !isValidBlock)
+            if (data.blockHash && !isValidBlock && !isBlock)
                 logger.debug(logSystem, logComponent, logSubCat, 'We thought a block was found but it was rejected by the daemon, share data: ' + shareData);
 
-            else if (isValidBlock)
+            else if (isValidBlock && isBlock)
                 logger.debug(logSystem, logComponent, logSubCat, 'Block found: ' + data.blockHash + ' by ' + data.worker);
+            else if (isValidBlock && !isBlock)
+                logger.debug(logSystem, logComponent, logSubCat, 'Share found: ' + data.difficulty + ' by ' + data.worker);
 
             if (isValidShare) {
-                if(data.shareDiff > 1000000000)
+                if (data.shareDiff > 1000000000)
                     logger.debug(logSystem, logComponent, logSubCat, 'Share was found with diff higher than 1.000.000.000!');
-                else if(data.shareDiff > 1000000)
+                else if (data.shareDiff > 1000000)
                     logger.debug(logSystem, logComponent, logSubCat, 'Share was found with diff higher than 1.000.000!');
-                logger.debug(logSystem, logComponent, logSubCat, 'Share accepted at diff ' + data.difficulty + '/' + data.shareDiff + ' by ' + data.worker + ' [' + data.ip + ']' );
+                logger.debug(logSystem, logComponent, logSubCat, 'Share accepted at diff ' + data.difficulty + '/' + data.shareDiff + ' by ' + data.worker + ' [' + data.ip + ']');
 
             } else if (!isValidShare)
                 logger.debug(logSystem, logComponent, logSubCat, 'Share rejected: ' + shareData);
 
-            handlers.share(isValidShare, isValidBlock, data)
+            handlers.share(isValidShare, isValidBlock, isBlock, data)
 
-
+        }).on('client.live', function(client){
+            redisClient.hget( poolOptions.coin.name + ':liveStat', client.getLabel(), function(err, result) {
+                if( !err && result  )
+                {
+                    var curstat = JSON.parse(result);
+                    client.stat = curstat.Stat;
+                    client.avgStat = curstat.avgStat;
+                    client.warningtimes = curstat.warningtimes;
+                }
+                redisClient.hset(poolOptions.coin.name + ':liveStat', client.getLabel(),
+                    JSON.stringify({
+                        'Name': client.workerName,
+                        "IP": client.remoteAddress,
+                        "Time": client.lastActivity,
+                        "Stat": client.stat,
+                        "avgStat": client.avgStat,
+                        "warningtimes": client.warningtimes
+                    }));
+                var clienthash = crypto.createHmac('sha256', client.getLabel()).digest('hex');
+                redisClient.zadd(poolOptions.coin.name + ':liveStat:' + clienthash, Math.floor(Date.now() / 1000),
+                    JSON.stringify({
+                        'Name': client.workerName,
+                        "IP": client.remoteAddress,
+                        "Time": client.lastActivity,
+                        "Stat": client.stat
+                    })
+                );
+//                var claymore = new minerapi.interface(client.remoteAddress, 3333, logger);
+//                claymore.init();
+//                claymore.stat();
+                process.send({
+                    type: "proxyreg",
+                    coin: coin,
+                    client: {
+                        "label": client.getLabel(),
+                        "workerName": client.workerName,
+                        "remoteAddress": client.remoteAddress,
+                        "lastActivity": client.lastActivity,
+                        "stat": client.stat,
+                        "avgStat": client.avgStat,
+                        "warningtimes": client.warningtimes
+                    },
+                    "clienthash": clienthash
+                });
+            });
+        }).on('client.disconnected', function(client){
+//            redisClient.hdel(poolOptions.coin.name + ':liveStat', client.getLabel() );
         }).on('difficultyUpdate', function(workerName, diff){
             logger.debug(logSystem, logComponent, logSubCat, 'Difficulty update to diff ' + diff + ' workerName=' + JSON.stringify(workerName));
             handlers.diff(workerName, diff);
@@ -310,26 +383,5 @@ module.exports = function(logger){
     this.setDifficultyForProxyPort = function(pool, coin, algo) {
 
         logger.debug(logSystem, logComponent, algo, 'Setting proxy difficulties after pool start');
-
-        Object.keys(portalConfig.switching).forEach(function(switchName) {
-            if (!portalConfig.switching[switchName].enabled) return;
-
-            var switchAlgo = portalConfig.switching[switchName].algorithm;
-            if (pool.options.coin.algorithm !== switchAlgo) return;
-
-            // we know the switch configuration matches the pool's algo, so setup the diff and 
-            // vardiff for each of the switch's ports
-            for (var port in portalConfig.switching[switchName].ports) {
-
-                if (portalConfig.switching[switchName].ports[port].varDiff)
-                    pool.setVarDiff(port, portalConfig.switching[switchName].ports[port].varDiff);
-
-                if (portalConfig.switching[switchName].ports[port].diff){
-                    if (!pool.options.ports.hasOwnProperty(port)) 
-                        pool.options.ports[port] = {};
-                    pool.options.ports[port].diff = portalConfig.switching[switchName].ports[port].diff;
-                }
-            }
-        });
     };
 };

@@ -5,8 +5,13 @@
             display: none;
         }
         #adminCenter{
-            display: flex;
+            display: block;
             flex-flow: row;
+            float : left;
+        }
+        #adminPage{
+            display: block;
+
         }
         #leftMenu{
             flex: 0 0 200px;
@@ -14,10 +19,18 @@
         #editForm{
             flex: 1 1 auto;
         }
+
+        #live td{
+            padding-left: 20px;
+        }
     </style>
 
     <form class="pure-form pure-form-stacked" id="passwordForm">
         <fieldset>
+            <legend>Login</legend>
+
+            <input id="name" type="text" placeholder="Admin name">
+
             <legend>Password</legend>
 
             <input id="password" type="password" placeholder="Password">
@@ -36,6 +49,7 @@
             <a class="pure-menu-heading">Administration</a>
             <ul>
                 <li id="addPool"><a href="#">Add Pool</a></li>
+                <li id="logout"><a href="#">Log out</a></li>
                 <li class="pure-menu-heading" id="poolList">Current Pools</li>
             </ul>
         </div>
@@ -44,7 +58,14 @@
 
     </div>
 
+    <div id="adminPage">
+        <h1>Live Connections</h1>
+        <div id="live">
+
+        </div>
+    </div>
 
     <script src="/static/admin.js"></script>
 
 </div>
+

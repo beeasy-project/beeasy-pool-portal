@@ -20,6 +20,7 @@ $(function(){
     window.addEventListener('load', function() {
         setTimeout(function() {
             window.addEventListener("popstate", function(e) {
+//                alert("hello");
                 hotSwap(location.pathname.slice(1));
             });
         }, 0);
@@ -28,3 +29,14 @@ $(function(){
     window.statsSource = new EventSource("/api/live_stats");
 
 });
+
+function checkSwitchery(el, isChecked){
+    el.checked = isChecked;
+    if (typeof Event === 'function' || !document.fireEvent) {
+        var event = document.createEvent('HTMLEvents');
+        event.initEvent('change', true, true);
+        el.dispatchEvent(event);
+    } else {
+        el.fireEvent('onchange');
+    }
+}

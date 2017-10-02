@@ -7,11 +7,13 @@ var async = require('async');
 var extend = require('extend');
 
 var PoolLogger = require('./libs/logUtil.js');
-var CliListener = require('./libs/cliListener.js');
 var PoolWorker = require('./libs/poolWorker.js');
-var PaymentProcessor = require('./libs/paymentProcessor.js');
+var PaymentProcessor = require('./libs/paymentProcessorEthereum.js');
+var PayoutProcessor = require('./libs/payoutProcessorEthereum.js');
 var Website = require('./libs/website.js');
-var ProfitSwitch = require('./libs/profitSwitch.js');
+var MiningMonitor = require('./libs/miningMonitor.js');
+var MiningProxy = require('./libs/miningProxy.js');
+var TelegramBot = require('./libs/telegramBot.js');
 
 var algos = require('stratum-pool/lib/algoProperties.js');
 
@@ -25,14 +27,10 @@ if (!fs.existsSync('config.json')){
 var portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
 var poolConfigs;
 
-
 var logger = new PoolLogger({
     logLevel: portalConfig.logLevel,
     logColors: portalConfig.logColors
 });
-
-
-
 
 try {
     require('newrelic');
@@ -66,27 +64,34 @@ catch(e){
         logger.debug('POSIX', 'Connection Limit', '(Safe to ignore) POSIX module not installed and resource (connection) limit was not raised');
 }
 
-
 if (cluster.isWorker){
 
     switch(process.env.workerType){
+        case 'miningMonitor':
+            new MiningMonitor(logger);
+            break;
+        case 'miningProxy':
+            new MiningProxy(logger);
+            break;
         case 'pool':
             new PoolWorker(logger);
             break;
         case 'paymentProcessor':
             new PaymentProcessor(logger);
             break;
+        case 'payoutProcessor':
+            new PayoutProcessor(logger);
+            break;
         case 'website':
             new Website(logger);
             break;
-        case 'profitSwitch':
-            new ProfitSwitch(logger);
+        case 'telegramBot':
+            new TelegramBot(logger);
             break;
-    }
+        }
 
     return;
 } 
-
 
 //Read all pool configs from pool_configs and join them with their coin profile
 var buildPoolConfigs = function(){
@@ -94,7 +99,6 @@ var buildPoolConfigs = function(){
     var configDir = 'pool_configs/';
 
     var poolConfigFiles = [];
-
 
     /* Get filenames of pool config json files that are enabled */
     fs.readdirSync(configDir).forEach(function(file){
@@ -128,7 +132,6 @@ var buildPoolConfigs = function(){
 
         }
     }
-
 
     poolConfigFiles.forEach(function(poolOptions){
 
@@ -179,8 +182,6 @@ var buildPoolConfigs = function(){
     return configs;
 };
 
-
-
 var spawnPoolWorkers = function(){
 
     Object.keys(poolConfigs).forEach(function(coin){
@@ -196,7 +197,6 @@ var spawnPoolWorkers = function(){
         logger.warning('Master', 'PoolSpawner', 'No pool configs exists or are enabled in pool_configs folder. No pools spawned.');
         return;
     }
-
 
     var serializedConfigs = JSON.stringify(poolConfigs);
 
@@ -236,6 +236,13 @@ var spawnPoolWorkers = function(){
                         }
                     });
                     break;
+                case 'proxyreg':
+                    Object.keys(cluster.workers).forEach(function(id) {
+                        if (cluster.workers[id].type === 'miningProxy'){
+                            cluster.workers[id].send(msg);
+                        }
+                    });
+                    break;
             }
         });
     };
@@ -251,112 +258,6 @@ var spawnPoolWorkers = function(){
     }, 250);
 
 };
-
-
-var startCliListener = function(){
-
-    var cliPort = portalConfig.cliPort;
-
-    var listener = new CliListener(cliPort);
-    listener.on('log', function(text){
-        logger.debug('Master', 'CLI', text);
-    }).on('command', function(command, params, options, reply){
-
-        switch(command){
-            case 'blocknotify':
-                Object.keys(cluster.workers).forEach(function(id) {
-                    cluster.workers[id].send({type: 'blocknotify', coin: params[0], hash: params[1]});
-                });
-                reply('Pool workers notified');
-                break;
-            case 'coinswitch':
-                processCoinSwitchCommand(params, options, reply);
-                break;
-            case 'reloadpool':
-                Object.keys(cluster.workers).forEach(function(id) {
-                    cluster.workers[id].send({type: 'reloadpool', coin: params[0] });
-                });
-                reply('reloaded pool ' + params[0]);
-                break;
-            default:
-                reply('unrecognized command "' + command + '"');
-                break;
-        }
-    }).start();
-};
-
-
-var processCoinSwitchCommand = function(params, options, reply){
-
-    var logSystem = 'CLI';
-    var logComponent = 'coinswitch';
-
-    var replyError = function(msg){
-        reply(msg);
-        logger.error(logSystem, logComponent, msg);
-    };
-
-    if (!params[0]) {
-        replyError('Coin name required');
-        return;
-    }
-
-    if (!params[1] && !options.algorithm){
-        replyError('If switch key is not provided then algorithm options must be specified');
-        return;
-    }
-    else if (params[1] && !portalConfig.switching[params[1]]){
-        replyError('Switch key not recognized: ' + params[1]);
-        return;
-    }
-    else if (options.algorithm && !Object.keys(portalConfig.switching).filter(function(s){
-        return portalConfig.switching[s].algorithm === options.algorithm;
-    })[0]){
-        replyError('No switching options contain the algorithm ' + options.algorithm);
-        return;
-    }
-
-    var messageCoin = params[0].toLowerCase();
-    var newCoin = Object.keys(poolConfigs).filter(function(p){
-        return p.toLowerCase() === messageCoin;
-    })[0];
-
-    if (!newCoin){
-        replyError('Switch message to coin that is not recognized: ' + messageCoin);
-        return;
-    }
-
-
-    var switchNames = [];
-
-    if (params[1]) {
-        switchNames.push(params[1]);
-    }
-    else{
-        for (var name in portalConfig.switching){
-            if (portalConfig.switching[name].enabled && portalConfig.switching[name].algorithm === options.algorithm)
-                switchNames.push(name);
-        }
-    }
-
-    switchNames.forEach(function(name){
-        if (poolConfigs[newCoin].coin.algorithm !== portalConfig.switching[name].algorithm){
-            replyError('Cannot switch a '
-                + portalConfig.switching[name].algorithm
-                + ' algo pool to coin ' + newCoin + ' with ' + poolConfigs[newCoin].coin.algorithm + ' algo');
-            return;
-        }
-
-        Object.keys(cluster.workers).forEach(function (id) {
-            cluster.workers[id].send({type: 'coinswitch', coin: newCoin, switchName: name });
-        });
-    });
-
-    reply('Switch message sent to pool workers');
-
-};
-
-
 
 var startPaymentProcessor = function(){
 
@@ -375,16 +276,56 @@ var startPaymentProcessor = function(){
 
     var worker = cluster.fork({
         workerType: 'paymentProcessor',
-        pools: JSON.stringify(poolConfigs)
+        pools: JSON.stringify(poolConfigs),
+        portalConfig: JSON.stringify(portalConfig)
     });
+    worker.type ='paymentProcessor';
     worker.on('exit', function(code, signal){
         logger.error('Master', 'Payment Processor', 'Payment processor died, spawning replacement...');
         setTimeout(function(){
             startPaymentProcessor(poolConfigs);
         }, 2000);
+    }).on('message', function(msg){
+        logger.error('Master', 'Payment Processor', 'Payment processor message ' + JSON.stringify(msg) );
+
     });
+
+    worker.send({cmd : 'Test'});
 };
 
+var startPayoutProcessor = function(){
+
+    var enabledForAny = false;
+    for (var pool in poolConfigs){
+        var p = poolConfigs[pool];
+        var enabled = p.enabled && p.payoutProcessing && p.payoutProcessing.enabled;
+        if (enabled){
+            enabledForAny = true;
+            break;
+        }
+    }
+
+    if (!enabledForAny)
+        return;
+
+    var worker = cluster.fork({
+        workerType: 'payoutProcessor',
+        pools: JSON.stringify(poolConfigs),
+        portalConfig: JSON.stringify(portalConfig)
+    });
+    worker.type = 'payoutProcessor';
+
+    worker.on('exit', function(code, signal){
+        logger.error('Master', 'Payout Processor', 'Payout processor died, spawning replacement...');
+        setTimeout(function(){
+            startPaymentProcessor(poolConfigs);
+        }, 2000);
+    }).on('message', function(msg){
+        logger.error('Master', 'Payout Processor', 'Payout processor message ' + JSON.stringify(msg) );
+
+    });
+
+};
 
 var startWebsite = function(){
 
@@ -400,44 +341,130 @@ var startWebsite = function(){
         setTimeout(function(){
             startWebsite(portalConfig, poolConfigs);
         }, 2000);
+    }).on('message', function(message){
+        var clu = cluster;
+        var ismaster = cluster.isMaster;
+        if( message.cmd === 'payout'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'payoutProcessor'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
+        if( message.cmd === 'minerstat'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'pool'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
+
     });
 };
 
+var startMiningMonitor = function(){
 
-var startProfitSwitch = function(){
-
-    if (!portalConfig.profitSwitch || !portalConfig.profitSwitch.enabled){
-        //logger.error('Master', 'Profit', 'Profit auto switching disabled');
-        return;
-    }
+    if( portalConfig.monitoring.enabled != true) return;
 
     var worker = cluster.fork({
-        workerType: 'profitSwitch',
+        workerType: 'miningMonitor',
         pools: JSON.stringify(poolConfigs),
         portalConfig: JSON.stringify(portalConfig)
     });
     worker.on('exit', function(code, signal){
         logger.error('Master', 'Profit', 'Profit switching process died, spawning replacement...');
         setTimeout(function(){
-            startWebsite(portalConfig, poolConfigs);
+            miningMonitor(portalConfig, poolConfigs);
         }, 2000);
+    }).on("message", function(message){
+        var clu = cluster;
+        var ismaster = cluster.isMaster;
+        if( message.type === 'minerstat'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'pool'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
+        if( message.type === 'mineralert'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'telegramBot'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
+        if( message.type === 'proxystat'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'miningProxy'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
     });
 };
 
+var startTelegramBot = function(){
 
+    if( portalConfig.telegram.enabled != true) return;
+
+    var worker = cluster.fork({
+        workerType: 'telegramBot',
+        pools: JSON.stringify(poolConfigs),
+        portalConfig: JSON.stringify(portalConfig)
+    });
+    worker.type = 'telegramBot';
+    worker.on('exit', function(code, signal){
+        logger.error('Master', 'Profit', 'Profit switching process died, spawning replacement...');
+        setTimeout(function(){
+            startTelegramBot();
+        }, 2000);
+    }).on("message", function(message){
+        if( message.type === 'minerstat'){
+            Object.keys(cluster.workers).forEach(function(id) {
+                if (cluster.workers[id].type === 'pool'){
+                    cluster.workers[id].send(message);
+                }
+            });
+        }
+    });
+};
+
+var startMiningProxy = function(){
+
+    if( portalConfig.monitoring.enableProxy !== true) return;
+
+    var worker = cluster.fork({
+        workerType: 'miningProxy',
+        pools: JSON.stringify(poolConfigs),
+        portalConfig: JSON.stringify(portalConfig)
+    });
+    worker.type = 'miningProxy';
+    worker.on('exit', function(code, signal){
+        logger.error('Master', 'MiningProxy', 'MiningProxy process died, spawning replacement...');
+        setTimeout(function(){
+            startMiningProxy();
+        }, 2000);
+    }).on("message", function(message){
+        logger.error('Master', 'MiningProxy', 'MiningProxy message ' + JSON.stringify(msg) );
+    });
+};
 
 (function init(){
 
     poolConfigs = buildPoolConfigs();
 
+    startMiningMonitor();
+
+    startMiningProxy();
+
     spawnPoolWorkers();
 
     startPaymentProcessor();
 
+    startPayoutProcessor();
+
     startWebsite();
 
-    startProfitSwitch();
-
-    startCliListener();
+    startTelegramBot();
 
 })();

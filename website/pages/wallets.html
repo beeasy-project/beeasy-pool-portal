@@ -1,0 +1,44 @@
+﻿              <style>
+                #walletsForm input{
+                    width : 500px;
+                }
+              </style>      
+
+              <div class="col-sm-12">
+                <div class="card-box">
+                  <p class="text-muted font-13">
+                    Укажите кошелек для вывода средств. Также при необходимости можете изменить значение минимальной суммы для вывода. Минимальная сумма для вывода не может быть меньше {{=it.poolConfigs['ethereum'].paymentProcessing.minimumPayment}}
+                  </p>
+                  <div id="wallets">
+                    <form id="walletsForm" class="form-inline m-t-30" role="form">
+                      {{ for(var pool in it.poolConfigs) { }}
+                      <div class="row">
+                        <div class="form-group col-sm-4 m-b-20">
+                          <label for="{{=pool.replace(/\s/gi,'')}}" class="m-r-10">Add wallet for {{=pool}}</label>
+                          <input type="text" class="form-control m-r-10" id="{{=pool.replace(/\s/gi,'')}}" name="wal_{{=pool.replace(/\s/gi,'')}}" value="" placeholder="Add wallet for {{=pool}}" />
+                        </div>
+                        <div class="form-group col-sm-4 m-b-20">
+                          <label for="minpayments_{{=pool.replace(/\s/gi,'')}}" class="m-r-10">Minimum payment for {{=pool}}</label>
+                          <input type="text" class="form-control" id="minpayments_{{=pool.replace(/\s/gi,'')}}" name="minpayments_{{=pool.replace(/\s/gi,'')}}" value="{{=it.poolConfigs[pool].paymentProcessing.minimumPayment}}" placeholder="Minimum payment for {{=pool}}" />
+                        </div>
+                      </div> 
+                      {{ } }}
+                      <div class="row m-t-20">
+                        <div class="col-sm-4"></div>
+                        <div class="form-group col-sm-2" id="walletconfwrapper" style="display:none;">
+                          <label class="sr-only" for="walletconf">Confirmation code</label>
+                          <input type="text" class="form-control" id="walletconf" value="new" placeholder="Confirmation code" />
+                        </div>
+                        <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="saveWallet">Save</button>
+                      </div>
+                    </form>                  
+                  </div>
+                  <div class="clearfix"></div>
+                </div>
+              </div>
+              <script src="/static/user.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Wallets');
+                });
+              </script>

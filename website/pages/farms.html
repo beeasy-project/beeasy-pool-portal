@@ -1,0 +1,32 @@
+﻿              <div class="col-sm-12">
+                <div class="card-box" id="tblfarms">
+                
+                  <!--<p class="text-muted font-13">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec finibus, velit sed dignissim ullamcorper, justo erat finibus tortor, non commodo lacus nulla in dolor. Nunc laoreet fringilla sapien et iaculis. Fusce et pretium ipsum. Praesent volutpat ultrices fermentum. Nullam varius posuere gravida. Sed porttitor purus efficitur vestibulum placerat. Donec ac metus at lacus maximus consequat non vel turpis. Praesent a urna ut diam ultrices ullamcorper nec fermentum est. Pellentesque vel malesuada urna.
+                  </p>-->  
+                  
+                  <table class="tablesaw m-t-20 table m-b-0" data-tablesaw-mode="stack">
+                    <thead>
+                      <tr>
+                        <th class="title" scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Name</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">IP</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Temperature</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Fan</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Now mining</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Switch to</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Management</th>
+                      </tr>
+                    </thead>
+                    <tbody id="farms">                      
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <script src="/static/user.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Farms');
+                });
+              </script>
+

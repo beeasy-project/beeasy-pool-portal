@@ -1,0 +1,51 @@
+              <div class="col-md-8">
+                <div class="bg-picture card-box">
+                  <div class="profile-info-name">
+                    <img src="/images/users/profile.jpg" class="img-thumbnail" alt="profile-image" />
+                    <div class="profile-info-detail">
+                      <h3 class="m-t-0 m-b-0" id="username2"></h3>
+                      <div class="m-t-20">
+                        <button type="button" class="btn btn-info waves-effect waves-light m-b-5">
+                          <i class="fa fa-telegram m-r-5"></i>
+                          <span id="telegram"></span>
+                        </button>                         
+                      </div>
+                      <div class="m-t-20">
+                        Referral link: <input type="text" class="form-control" id="reflink" value=""/>
+                      </div>
+                    </div>
+                    <div class="clearfix"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-8">
+                <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">Settings</h3>
+                  </div>
+                  <div class="panel-body">
+                    <form method="post" class="form-inline">
+                      <div class="form-group col-sm-3 m-r-10">
+                        <label for="tfauth" class="m-r-10">Two-factor auth</label>
+                        <input type="checkbox" id="tfauth" value="1" data-plugin="switchery" data-switchery="true" data-color="#10c469" />
+                      </div>
+                      <div class="form-group col-sm-2 m-r-10" id="settingsconfwrapper" style="display:none;">
+                        <label class="sr-only" for="settingsconf">Confirmation code</label>
+                        <input type="text" class="form-control" value="new" id="settingsconf" placeholder="Confirmation code" />
+                      </div>
+                      <button type="button" class="btn btn-success waves-effect w-md waves-light m-b-5" onclick="trySaveSettings()">Save</button>     
+                    </form>
+                    <div class="clearfix"></div>
+                  </div>
+                </div>
+              </div>
+              <link rel="stylesheet" href="/css/switchery.min.css" />
+              <script src="/js/switchery.min.js"></script>
+              <script src="/static/user.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Profile');
+                });
+              </script>

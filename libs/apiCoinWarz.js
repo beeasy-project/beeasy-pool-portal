@@ -49,8 +49,8 @@ module.exports = function() {
         constructor: CoinWarz,
 
         // Make an API request
-        _request: function(options, callback){
-            if (!('headers' in options)){
+        _request: function (options, callback) {
+            if (!('headers' in options)) {
                 options.headers = {};
             }
 
@@ -58,7 +58,7 @@ module.exports = function() {
             options.json = true;
             options.strictSSL = CoinWarz.STRICT_SSL;
 
-            request(options, function(err, response, body) {
+            request(options, function (err, response, body) {
                 callback(err, body);
             });
 
@@ -66,7 +66,7 @@ module.exports = function() {
         },
 
         // Make a public API request
-        _public: function(parameters, callback){
+        _public: function (parameters, callback) {
             var options = {
                 method: 'GET',
                 url: PUBLIC_API_URL,
@@ -82,32 +82,32 @@ module.exports = function() {
 
         // PUBLIC METHODS
 
-        getTicker: function(callback){
+        getTicker: function (callback) {
             var parameters = {
-                    method: 'marketdatav2'
-                };
+                method: 'marketdatav2'
+            };
 
             return this._public(parameters, callback);
         },
 
-        getOrderBook: function(currencyA, currencyB, callback){
+        getOrderBook: function (currencyA, currencyB, callback) {
             var parameters = {
-                    command: 'returnOrderBook',
-                    currencyPair: joinCurrencies(currencyA, currencyB)
-                };
+                command: 'returnOrderBook',
+                currencyPair: joinCurrencies(currencyA, currencyB)
+            };
 
             return this._public(parameters, callback);
         },
 
-        getTradeHistory: function(currencyA, currencyB, callback){
+        getTradeHistory: function (currencyA, currencyB, callback) {
             var parameters = {
-                    command: 'returnTradeHistory',
-                    currencyPair: joinCurrencies(currencyA, currencyB)
-                };
+                command: 'returnTradeHistory',
+                currencyPair: joinCurrencies(currencyA, currencyB)
+            };
 
             return this._public(parameters, callback);
         },
-
+    };
 
         ////
         

@@ -218,7 +218,7 @@
                     coin: it.poolsConfigs[pool].coin,
                     algo: it.poolsConfigs[pool].coin.algorithm,
                     ports: it.poolsConfigs[pool].ports,
-                    host: it.portalConfig.website.stratumHost
+                    host: it.poolsConfigs[pool].stratumHost
                 }).replace(/"/g, '&quot;');
             }}
             <a href="#" class="poolOption" data-info="{{=info}}">{{=pool}}</a>
@@ -227,11 +227,11 @@
     </div>
 
     <div id="main">
-        <a href="#" class="miningOption" id="nompAppDownload">
+        <a href="/download/EasypoolMiner.msi" class="miningOption" id="nompAppDownload">
             <div class="miningOptionNum">1.</div>
             <div class="miningOptionInstructions">
-                <div>Download NOMP App</div>
-                <div>Our preconfigured app makes mining that easy</div>
+                <div>Download EasyPool Miner App</div>
+                <div>One click and you are mining!</div>
             </div>
         </a>
         <div id="orHolder">
@@ -310,9 +310,4 @@
         return false;
     });
 
-    $('#nompAppDownload').click(function(event){
-        event.preventDefault();
-        alert('NOMP App development still in progress...');
-        return false;
-    });
 </script>

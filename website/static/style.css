@@ -66,3 +66,8 @@ footer a{
 footer iframe{
     vertical-align: middle;
 }
+
+.payoutstable td{
+    padding : 3px;
+    font-size: 14px;
+}

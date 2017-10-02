@@ -1,0 +1,36 @@
+﻿              <div class="col-sm-12">
+                <div class="card-box">                  
+                  <div id="balance">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="card-box" id="tbltrans">
+                  <div class="dropdown pull-right" id="coinselectorwrapper">
+                  </div>
+                  <h3 class="header-title m-t-0 m-b-20 text-success">Payouts for</h3>
+                  <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                    <thead>
+                      <tr>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Coin</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Tx</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Wallet</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">Amount</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Payoff amount</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payoutsdata">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <script src="/static/user.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Balance');
+                    document.querySelector('body').appendChild(document.createElement('script')).src = '/static/ubalance.js';
+                });
+              </script>

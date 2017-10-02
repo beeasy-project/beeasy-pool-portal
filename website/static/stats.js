@@ -36,7 +36,7 @@ function buildChartData(){
             if (pName in statData[i].pools){
                 a.hashrate.push([time, statData[i].pools[pName].hashrate]);
                 a.workers.push([time, statData[i].pools[pName].workerCount]);
-                a.blocks.push([time, statData[i].pools[pName].blocks.pending])
+                a.blocks.push([time, statData[i].pools[pName].shares])
             }
             else{
                 a.hashrate.push([time, 0]);
@@ -130,7 +130,7 @@ function displayCharts(){
 
         poolBlockChart.xAxis.tickFormat(timeOfDayFormat);
 
-        poolBlockChart.yAxis.tickFormat(d3.format('d'));
+        poolBlockChart.yAxis.tickFormat(d3.format('.2f'));
 
         d3.select('#poolBlocks').datum(poolBlockData).call(poolBlockChart);
 
@@ -190,7 +190,7 @@ statsSource.addEventListener('message', function(e){
             for (var i = 0; i < poolBlockData.length; i++) {
                 if (poolBlockData[i].key === pool) {
                     poolBlockData[i].values.shift();
-                    poolBlockData[i].values.push([time, pool in stats.pools ? stats.pools[pool].blocks.pending : 0]);
+                    poolBlockData[i].values.push([time, pool in stats.pools ? stats.pools[pool].shares : 0]);
                     break;
                 }
             }

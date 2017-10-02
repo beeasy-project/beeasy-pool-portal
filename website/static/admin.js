@@ -1,60 +1,72 @@
-var docCookies = {
-    getItem: function (sKey) {
-        return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
-    },
-    setItem: function (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
-        if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
-        var sExpires = "";
-        if (vEnd) {
-            switch (vEnd.constructor) {
-                case Number:
-                    sExpires = vEnd === Infinity ? "; expires=Fri, 31 Dec 9999 23:59:59 GMT" : "; max-age=" + vEnd;
-                    break;
-                case String:
-                    sExpires = "; expires=" + vEnd;
-                    break;
-                case Date:
-                    sExpires = "; expires=" + vEnd.toUTCString();
-                    break;
-            }
+var timerId = null;
+function checkUser(){
+    apiRequest('checkUser', {}, function(response){
+        if (response.result){
+            tryGetLiveStats();
+        } else {
+            location.assign('/admin');
         }
-        document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
-        return true;
-    },
-    removeItem: function (sKey, sPath, sDomain) {
-        if (!sKey || !this.hasItem(sKey)) { return false; }
-        document.cookie = encodeURIComponent(sKey) + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT" + ( sDomain ? "; domain=" + sDomain : "") + ( sPath ? "; path=" + sPath : "");
-        return true;
-    },
-    hasItem: function (sKey) {
-        return (new RegExp("(?:^|;\\s*)" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=")).test(document.cookie);
-    }
-};
-
-var password = docCookies.getItem('password');
-
-
-function showLogin(){
-    $('#adminCenter').hide();
-    $('#passwordForm').show();
-}
-
-function showAdminCenter(){
-    $('#passwordForm').hide();
-    $('#adminCenter').show();
-}
-
-function tryLogin(){
-    apiRequest('pools', {}, function(response){
-        showAdminCenter();
-        displayMenu(response.result)
     });
 }
 
-function displayMenu(pools){
-    $('#poolList').after(Object.keys(pools).map(function(poolName){
-        return '<li class="poolMenuItem"><a href="#">' + poolName + '</a></li>';
-    }).join(''));
+function tryLogout(){
+    apiRequest('logout', {}, function(response){
+        location.assign('/admin');
+    });
+}
+
+function tryGetLiveStats(){
+    apiRequest('live', {}, function(response){
+        showLive(response.result);
+    });
+    timerId = setInterval( function (){
+        apiRequest('live', {}, function(response){
+            showLive(response.result);
+        });
+    }, 10000);
+}
+
+function trySendCommand(farm, command)
+{
+    apiRequest('command', {farm: farm, command: command}, function(response){
+        alert(response);
+    });
+}
+
+var showLive = function(connections){
+
+    var tbl = Object.values(connections).map(function(connection){
+        var res = JSON.parse(connection);
+        var hashrate =  0;
+        var temp=[];
+        var speed=[];
+
+        var commandswitcher = '<div class="btn-group"><button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false">None <span class="caret"></span></button>';
+        commandswitcher += '<ul class="dropdown-menu" role="menu">';
+        ['restart','stop','start','reboot'].forEach(function (commandname) {
+            commandswitcher += '<li style="z-index:1000!important"><a href="javascript:void(0)" onclick="trySendCommand(\''+res.Name+'\', this.innerHTML)">'+commandname+'</a></li>';
+        });
+        commandswitcher += '</ul></div>';
+
+        if(res.Stat === undefined || Object.keys(res.Stat).length === 0)
+        {
+            return '<tr><td>'+ res.Name + '</td><td>'+ res.IP + '</td><td colspan="6">' + 'undefined' + '</td></tr>';
+        }else{
+            return '<tr><td><a href="javascript:void(0)" class="statlink" onclick="clickLink(\'' +res.Hash + '\', event,\''+res.Name+'\')">'+ res.Name + '</a></td><td>'+ res.IP +
+                '</td><td>' + res.Stat.hashrate +'</td><td>' + res.Stat.gpuhashrate.toString() +
+                '</td><td>'+ res.Stat.temperature.toString() +'</td><td>'+ res.Stat.speed.toString() + '</td><td>' + res.curcoin.toString() +
+                '</td><td>'+ commandswitcher + '</td></tr>'
+        }
+
+    }).join('');
+    $('#live').html(tbl);
+    $('#tbllive>table').removeData();
+    $('#tbllive').trigger( 'enhance.tablesaw' )
+};
+function clickLink(link, event, fname)
+{
+    event.preventDefault();
+    GetConnectionStat( link );
 }
 
 function apiRequest(func, data, callback){
@@ -62,10 +74,7 @@ function apiRequest(func, data, callback){
     httpRequest.onreadystatechange = function(){
         if (httpRequest.readyState === 4 && httpRequest.responseText){
             if (httpRequest.status === 401){
-                docCookies.removeItem('password');
-                $('#password').val('');
-                showLogin();
-                alert('Incorrect Password');
+                alert('Incorrect Password Or Admin does not exist');
             }
             else{
                 var response = JSON.parse(httpRequest.responseText);
@@ -74,27 +83,15 @@ function apiRequest(func, data, callback){
         }
     };
     httpRequest.open('POST', '/api/admin/' + func);
-    data.password = password;
     httpRequest.setRequestHeader('Content-Type', 'application/json');
     httpRequest.send(JSON.stringify(data));
 }
 
-if (password){
-    tryLogin();
-}
-else{
-    showLogin();
-}
-
-$('#passwordForm').submit(function(event){
-    event.preventDefault();
-    password = $('#password').val();
-    if (password){
-        if ($('#remember').is(':checked'))
-            docCookies.setItem('password', password, Infinity);
-        else
-            docCookies.setItem('password', password);
-        tryLogin();
-    }
-    return false;
+$( document ).ready(function(){
+    checkUser();
+    $('#adminLogout').click( function(event){
+        event.preventDefault();
+        clearInterval(timerId);
+        tryLogout();
+    });
 });

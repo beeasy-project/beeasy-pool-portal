@@ -1,140 +1,360 @@
-<style>
-    #boxWelcome{
-        background-color: #0eafc7;
-        color: white;
-        margin: 18px;
-    }
-    #logoImg{
-        height: 285px;
-        margin: 55px;
-    }
-    #welcomeText{
-        font-size: 2.7em;
-        margin: 50px 18px 10px 18px;
-    }
-    #welcomeItems{
-        list-style-type: none;
-        font-size: 1.3em;
-        padding: 0 !important;
-        margin: 0 0 0 18px !important;
-    }
-    #welcomeItems > li{
-        margin: 30px !important;
-    }
-    #boxesLower {
-        margin: 0 9px;
-    }
-    #boxesLower > div {
-        display: flex;
-    }
-    #boxesLower > div > div {
-        flex: 1 1 auto;
-        margin: 0 9px 18px 9px;
-        padding: 10px;
-        display: flex;
-        flex-direction: column;
-    }
-    .boxLowerHeader{
-        font-size: 1.3em;
-        margin: 0 0 5px 10px;
-    }
-
-
-    #boxStatsLeft{
-        background-color: #b064e1;
-    }
-    #boxStatsRight{
-        background-color: #10bb9c;
-    }
-    .boxStats{
-        color: white;
-    }
-    .boxStatsList{
-        display: flex;
-        flex-flow: row wrap;
-        justify-content: space-around;
-        opacity: 0.77;
-        margin-bottom: 5px;
-        flex: 1 1 auto;
-        align-content: center;
-    }
-    .boxStatsList i.fa{
-        height: 15px;
-        width: 33px;
-        text-align: center;
-    }
-    .boxStatsList > div{
-        padding: 5px 20px;
-    }
-    .boxStatsList > div > div{
-        padding: 3px;
-    }
-
-
-</style>
-
-
-<div class="pure-g-r" id="boxWelcome">
-    <div class="pure-u-1-3">
-        <img id="logoImg" src="/static/logo.svg">
-    </div>
-    <div class="pure-u-2-3">
-        <div id="welcomeText">Welcome to the future of mining</div>
-        <ul id="welcomeItems">
-            <li>Low fees</li>
-            <li>High performance Node.js backend</li>
-            <li>User friendly mining client</li>
-            <li>Multi-coin / multi-pool</li>
-        </ul>
-    </div>
-</div>
-
-<div class="pure-g-r" id="boxesLower">
-
-    <div class="pure-u-1-2">
-        <div class="boxStats" id="boxStatsLeft">
-            <div class="boxLowerHeader">Global Stats</div>
-            <div class="boxStatsList">
-                {{ for(var algo in it.stats.algos) { }}
-                <div>
-                    <div><i class="fa fa-flask"></i>{{=algo}}</div>
-                    <div><i class="fa fa-users"></i><span id="statsMiners{{=algo}}">{{=it.stats.algos[algo].workers}}</span> Miners</div>
-                    <div><i class="fa fa-tachometer"></i><span id="statsHashrate{{=algo}}">{{=it.stats.algos[algo].hashrateString}}</span></div>
-                </div>
-                {{ } }}
+    <section id="about">
+      <div class="home">
+        <div class="home-text-area">
+          <div class="container">
+            <div class="display-fw">
+              <h1 class="wow bounceinup">Дружественный майнинг</h1>
+              <h2 class="animate-reveal">EasyPool.me</h2>
+              <p>Добро пожаловать в мир майнинга!<br />Мы проведем вас сквозь дебри технологий<br /> к вершинам успеха и финансовой независимости.</p>
+              <a href="/start" class="btn">Начать</a>
+              <a href="#contacts" class="btn">Связаться</a>
             </div>
+          </div>
         </div>
-    </div>
-
-    <div class="pure-u-1-2">
-        <div class="boxStats" id="boxStatsRight">
-            <div class="boxLowerHeader">Pools / Coins</div>
-            <div class="boxStatsList">
-                {{ for(var pool in it.stats.pools) { }}
-                <div>
-                    <div><i class="fa fa-dot-circle-o"></i>{{=pool}}</div>
-                    <div><i class="fa fa-users"></i><span id="statsMiners{{=pool}}">{{=it.stats.pools[pool].workerCount}}</span> Miners</div>
-                    <div><i class="fa fa-tachometer"></i><span id="statsHashrate{{=pool}}">{{=it.stats.pools[pool].hashrateString}}</span></div>
-                </div>
-                {{ } }}
+      </div>
+    </section>
+    <section class="feature-key">      
+      <div class="container">
+        <h2 class="animate-reveal">Почему EasyPool?</h2>
+        <p class="animate-reveal">Вы не пожалеете, выбрав нас!</p>
+        <div class="row">
+          <div class="col-md-5">
+            <div class="feature-area">
+              <div class="img-box">
+                <img src="images/tab-icon-elc.png" class="elec" alt="" />
+              </div>
+              <div class="feature-text">
+                <h3>Контроль</h3>
+                <p>Полный контроль над оборудованием, оперативные уведомления.</p>
+              </div>
             </div>
+            <div class="feature-area">
+              <div class="img-box">
+                <img src="images/tab-icon-elc-one.png" alt="" />
+              </div>
+              <div class="feature-text">
+                <h3>Простота</h3>
+                <p>Мы делаем майнинг простым и понятным. Скачайте приложение и начните майнить в один клик.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="mobile-image">
+              <img src="images/phone_1.jpg" class="img-responsive" alt="mobile" />
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="feature-second-area">
+              <div class="img-box wow swing">
+                <img src="images/tab-icon-elc-two.png" alt="" />
+              </div>
+              <div class="feature-text">
+                <h3>Надежность</h3>
+                <p>Полная прозрачность, понятная структура выплат, анонимность и децентрализация.</p>
+              </div>
+            </div>
+            <div class="feature-second-area">
+              <div class="img-box">
+                <img src="images/tab-icon-elc-three.png" class="three" alt="" />
+              </div>
+              <div class="feature-text">
+                <h3 class="animate-reveal">Эффективность</h3>
+                <p>Оптимизация каналов, высокоэффективный, производительный софт.</p>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
+      </div>
+    </section>
+    <section id="how-work" class="how-work">
+      <h2 class="animate-reveal">Как начать?</h2>
+      <p class="animate-reveal">Мир майнинга никогда еще не был так прост и понятен.</p>
+      <div class="container-fluid no-margin no-padding">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="img-box">
+              <div class="img img-1 img-responsive"></div>
+              <div class="text-details">
+                <h3>Индивидуальный майнинг</h3>
+                <div class="p-area">
+                  <span class="fa fa-long-arrow-right arrow" aria-hidden="true"></span>
+                  <p>Зарегистрируйте аккаунт на сайте.</p>
+                </div>
+                <div class="p-area">
+                  <span class="fa fa-long-arrow-right arrow" aria-hidden="true"></span>
+                  <p>Скачайте приложение.</p>
+                </div>
+                <div class="p-area">
+                  <span class="fa fa-long-arrow-right arrow" aria-hidden="true"></span>
+                  <p>Начните майнинг одной кнопкой!</p>
+                </div>
+                <div class="p-area">
+                  <a href="/auth" class="btn">Зарегистрироваться</a>
+                  <a href="/miners" class="btn">Скачать приложение</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="one-iphone">
+              <img src="images/domashniy-mining.jpg" alt="Индивидуальный майнинг" />
+            </div>
+          </div>
+        </div>
+        <div class="row second">
+          <div class="col-md-6">
+            <div class="second-iphone">
+              <img src="images/promishlenniy-mining.jpg" class="img-responsive" alt="Профессиональный майнинг" />
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="second-img-box">
+              <div class="img img-2"></div>
+              <div class="clearfix"></div>
+              <div class="second-text-details">
+                <h3>Профессиональный майнинг</h3>
+                <div class="second-p-area p-white">
+                  <span class="fa fa-long-arrow-left arrow" aria-hidden="true"></span>
+                  <p>Скачайте имидж EasyPool Proxy.</p>
+                </div>
+                <div class="second-p-area p-white">
+                  <span class="fa fa-long-arrow-left arrow" aria-hidden="true"></span>
+                  <p>Установите на отдельную машину или один из майнеров.</p>
+                </div>
+                <div class="second-p-area p-white">
+                  <span class="fa fa-long-arrow-left arrow" aria-hidden="true"></span>
+                  <p>Настройте подключение майнеров к локальному компьютеру.</p>
+                </div>
+                <div class="second-p-area p-white">
+                  <span class="fa fa-long-arrow-left arrow" aria-hidden="true"></span>
+                  <p>Наслаждайтесь производительностью и полным контролем над оборудованием</p>
+                </div>
+                <div class="second-p-area p-white">
+                  <a href="/professionals" class="btn btn-default">Узнать больше</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="feature" class="feature">
+      <h2 class="animate-reveal">Направления майнинга:</h2>
+      <div class="pricing-area">
+        <div class="container">
+          <div class="row">
+            <div class="col-md-4 col-md-offset-2">
+              <div class="price-content">
+                <div class="ribbon h"><span>Для дома</span></div>
+                <h3>Индивидуальный</h3>
+                <div class="border"></div>
+                <h4>Для владельцев небольшого<br> количества ригов</h4>
+                <p>Простота использования<br>Эффективность<br>Надежность</p>
+                <a href="/miners" class="btn">Узнать больше</a>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="price-content">
+                <div class="ribbon b"><span>Для бизнеса</span></div>
+                <h3>Профессиональный</h3>
+                <div class="border-business"></div>
+                <h4>Для владельцев ферм<br> и датацентров</h4>
+                <p>Контроль за оборудованием<br>Мгновенные уведомления об отказах<br>Скорость и эффективность</p>
+                <a href="/professionals" class="btn">Узнать больше</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!--<section id="projects" class="projects">
+      <h2 class="animate-reveal">Наши проекты</h2>
+      <div class="sentient-dashboard">
+        <div class="container">
+          <h3 class="animate-reveal">Мы работаем в следующих направлениях</h3>
+          <p>EasyPool &ndash; это не только майнинг &ndash; это целая инфраструктура вокруг майнинга криптовалют.</p>
+          <p>EasyPool создан профессионалами для всех категорий майнеров!</p>
+          <div class="main-elc">
+            <div class="slider slider-for-elc">
+              <div class="slide-img">
+                <img src="images/img1-elc.jpg" class="img-responsive" alt="" />
+                <div class="imgtext">Майнинг криптовалют</div>
+              </div>
+              <div class="slide-img">
+                <img src="images/img2-elc.jpg" class="img-responsive" alt="" />
+                <div class="imgtext">Майнинг игровых валют и других активов</div>
+              </div>
+              <div class="slide-img">
+                <img src="images/img3-elc.jpg" class="img-responsive" alt="" />
+                <div class="imgtext">Мaйнинг вещей</div>
+              </div>
+              <div class="slide-img">
+                <img src="images/img1-elc.jpg" class="img-responsive" alt="" />
+                <div class="imgtext">Благотворительный майнинг</div>
+              </div>
+              <div class="slide-img">
+                <img src="images/img4-elc.jpg" class="img-responsive" alt="" />
+                <div class="imgtext">Фонд инвестиций в криптоактивы</div>
+              </div>
+            </div>
+            <div class="slider slider-nav-el">
+              <div class="nav-img-elc"><img src="images/img1-elc.jpg" class="img-responsive" alt="" /></div>
+              <div class="nav-img-elc"><img src="images/img2-elc.jpg" class="img-responsive" alt="" /></div>
+              <div class="nav-img-elc"><img src="images/img3-elc.jpg" class="img-responsive" alt="" /></div>
+              <div class="nav-img-elc"><img src="images/img1-elc.jpg" class="img-responsive" alt="" /></div>
+              <div class="nav-img-elc"><img src="images/img4-elc.jpg" class="img-responsive" alt="" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>-->
 
-</div>
+    <!--section id="reviews" class="reviews">
+      <div class="container">
+        <div class="clients">
+          <h2 class="animate-reveal">Отзывы клиентов</h2>
+          <div class="main-elc-2">
+            <div class="row">
+              <div class="col-md-12">
+                <div class="carousel slide" data-ride="carousel" id="quote-carousel">
+                  <div class="carousel-inner client-quote">
+                    <div class="item active">
+                      <div class="client-comment">
+                        <div class="quote">
+                          <img src="images/quote-img-elc.png" alt="" />
+                        </div>
+                        <p>Никогда не видел ничего подобного, простота использования помноженная на надежность и возведенная в степень эффективности!</p>
+                      </div>
+                    </div>
+                    <div class="item">
+                      <div class="client-comment">
+                        <div class="quote">
+                            <img src="images/quote-img-elc.png" alt="" />
+                        </div>
+                        <p>Наконец у меня появилась возможность тратить заработок не волнуясь и не отвлекаясь на обеспечение работоспособности моей небольшой но оченеь продуктивной фермы из 26 ригов!</p>
+                      </div>
+                    </div>
+                    <div class="item">
+                      <div class="client-comment">
+                        <div class="quote">
+                          <img src="images/quote-img-elc.png" alt="" />
+                        </div>
+                        <p>С EasyPool не сравниться практически ни одно решение из всех, которые я посмотрел, а посмотрел я немало!</p>
+                      </div>
+                    </div>
+                  </div>
 
-<script>
-    $(function() {
-        statsSource.addEventListener('message', function (e) {
-            var stats = JSON.parse(e.data);
-            for (algo in stats.algos) {
-                $('#statsMiners' + algo).text(stats.algos[algo].workers);
-                $('#statsHashrate' + algo).text(stats.algos[algo].hashrateString);
-            }
-            for (var pool in stats.pools) {
-                $('#statsMiners' + pool).text(stats.pools[pool].workerCount);
-                $('#statsHashrate' + pool).text(stats.pools[pool].hashrateString);
-            }
+                  <ol class="carousel-indicators">
+                    <li data-target="#quote-carousel" data-slide-to="0" class="active">
+                      <img src="images/client-1-elc.png" class="img-responsive" alt="" />
+                    </li>
+                    <li data-target="#quote-carousel" data-slide-to="1">
+                      <img src="images/client-1-elc.png" class="img-responsive" alt="" />
+                    </li>
+                    <li data-target="#quote-carousel" data-slide-to="2">
+                      <img src="images/client-1-elc.png" class="img-responsive" alt="" />
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section-->
+    <section id="house-work" class="house-work">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-3 col-sm-6 col-xs-12">
+            <div class="icon-area">
+              <span class="fa fa-clock-o clock" aria-hidden="true"></span>
+              <div class="counter"><span class="counterspan" id="counterhours">{{=it.stats.global.hours}}</span></div>
+              <div class="caption">часов непрерывной работы</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-sm-6 col-xs-12">
+            <div class="icon-area">
+              <span class="fa fa-users clock" aria-hidden="true"></span>
+              <div class="counter"><span class="counterspan" id="counterworkers">{{=it.stats.global.workers}}</span></div>
+              <div class="caption">клиентов майнят сейчас</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-sm-6 col-xs-12">
+            <div class="icon-area">
+              <span class="fa fa-rocket clock" aria-hidden="true"></span>
+              <div class="counter"><span class="counterspan" id="counterpouts">{{=it.stats.global.payouts}}</span> ETH</div>
+              <div class="caption">Выплачено</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-sm-6 col-xs-12">
+            <div class="icon-area">
+              <span class="fa fa-trophy clock" aria-hidden="true"></span>
+              <div class="counter" id="counterhrates"><span class="counterspan">{{=it.stats.global.hashrateString.substr(0, it.stats.global.hashrateString.indexOf(" "))}}</span>{{=it.stats.global.hashrateString.substr(it.stats.global.hashrateString.indexOf(" "), it.stats.global.hashrateString.length)}}</div>
+              <div class="caption">мощность пула</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="contacts" class="contact-us">      
+      <div class="contact-details">
+        <div class="container">
+          <h2 class="animate-reveal">Связаться с нами</h2>
+          <div class="row">
+            <div class="col-md-6">
+              <form id="messageform" class="input-area">
+                <div class="form-group">
+                  <label for="name">Имя*</label>
+                  <input type="text" class="form-control" id="name" required>
+                </div>
+                <div class="form-group">
+                  <label for="email">Email*</label>
+                  <input type="email" class="form-control" id="email" required>
+                </div>
+                <div class="form-group">
+                  <label for="subject">Вопрос*</label>
+                  <input type="text" class="form-control" id="subject" required>
+                </div>
+                <div class="form-group">
+                  <label for="exampletextarea">Больше информации</label>
+                  <textarea class="form-control" id="exampletextarea" rows="9"></textarea>
+                </div>
+                <button type="submit" class="btn btn-default">Отправить</button>
+              </form>
+            </div>
+            <div class="col-md-6">
+              <div class="detail-area">
+                <div class="niceto-u">
+                  <h3>Контактная информация</h3>
+                  <p>Заполните форму и мы свяжемся с Вами как можно быстрее </p>
+                </div>
+
+                <div class="email">
+                  <h3>Email</h3>
+                  <p>contact@easypool.me</p>
+                </div>
+                <!--div class="cell-phone">
+                  <h3>Телефон</h3>
+                  <p>+</p>
+                </div-->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <script src="js/app.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            document.querySelector('body').appendChild(document.createElement('script')).src = '/static/message.js';
+            window.statsSource = new EventSource("/api/live_stats");
+            statsSource.addEventListener('message', function (e) {
+                var stats = JSON.parse(e.data);
+                $('#counterhours').text(stats.global.hours);
+                $('#counterworkers').text(stats.global.workers);
+                $('#counterpouts').text(stats.global.payouts);
+                var hrateStr = '<span class="counterspan">'+stats.global.hashrateString.substr(0, stats.global.hashrateString.indexOf(' '))+'</span>'+stats.global.hashrateString.substr(stats.global.hashrateString.indexOf(' '), stats.global.hashrateString.length);
+                $('#counterhrates').html(hrateStr);
+            });
         });
-    });
-</script>
+    </script>

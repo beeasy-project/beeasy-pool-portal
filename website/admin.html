@@ -1,0 +1,121 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <title>EasyPool.me</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+
+    <link rel="stylesheet" href="/css/tablesaw.css" />
+    <link rel="stylesheet" href="/css/jquery-ui.min.css" />
+
+    <link rel="stylesheet" href="/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/css/core.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/icons.css" />
+    <link rel="stylesheet" href="/css/pages.css" />
+    <link rel="stylesheet" href="/css/menu.css" />
+    <link rel="stylesheet" href="/css/responsive.css" />
+    <link rel="stylesheet" href="/static/nvd3.css" />
+
+    <!--[if lt IE 9]>
+    <script src="//oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="//oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/tablesaw.js"></script>
+    <script src="/js/tablesaw-init.js"></script>
+    <script src="/js/modernizr.min.js"></script>
+  </head>
+  <body class="fixed-left">
+    <div id="wrapper">
+      <div class="topbar">
+        <div class="topbar-left">
+          <!--<a href="/" class="logo"><span>Easy<span>pool</span>.me</span><i class="zmdi zmdi-layers"></i></a>-->
+          <a href="/"><img src="/images/logo.png" alt="" /></a>
+        </div>
+        <div class="navbar navbar-default" role="navigation">
+          <div class="container">
+            <ul class="nav navbar-nav navbar-left">
+              <li>
+                <button class="button-menu-mobile open-left">
+                  <i class="zmdi zmdi-menu"></i>
+                </button>
+              </li>
+              <li>
+                <h4 class="page-title" id="page-title"></h4>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <!-- ========== Left Sidebar Start ========== -->
+      <div class="left side-menu">
+        <div class="sidebar-inner slimscrollleft">
+          <!-- User -->
+          <div class="user-box">
+            <div class="user-img">
+              <img src="/images/users/avatar.jpg" alt="user-img" title="" class="img-circle img-thumbnail img-responsive">
+              <!--<div class="user-status offline"><i class="zmdi zmdi-dot-circle"></i></div>-->
+            </div>
+            <ul class="list-inline">
+              <li>
+                <a href="javascript:void(0)" class="text-custom" id="adminLogout">
+                  <i class="zmdi zmdi-power"></i>
+                </a>
+              </li>
+            </ul>
+          </div>
+          <!-- End User -->
+          <!--- Sidemenu -->
+          <div id="sidebar-menu">
+            <ul>
+              <li class="text-muted menu-title">Navigation</li>
+              <li><a href="/admin/summary" class="waves-effect"><i class="zmdi zmdi-view-dashboard"></i> <span>Dashboard</span></a></li>
+            {{? it.portalConfig.website && it.portalConfig.website.adminCenter && it.portalConfig.website.adminCenter.enabled }}
+              <li><a href="/admin/user" class="waves-effect"><i class="zmdi zmdi-collection-text"></i> <span>Users</span></a></li>
+              <li><a href="/admin/payouts" class="waves-effect"><i class="zmdi zmdi-balance"></i> <span>Payouts</span></a></li>
+            {{?}}
+            </ul>
+            <div class="clearfix"></div>
+          </div>
+          <!-- Sidebar -->
+          <div class="clearfix"></div>
+        </div>
+      </div>
+      <!-- Left Sidebar End -->
+      <div class="content-page">
+        <div class="content">
+          <div class="container">
+            <div class="row">
+              {{=it.page}}
+            </div>
+          </div>
+        </div>
+        <footer class="footer text-right">
+            2017 - EasyPool.me
+        </footer>
+      </div>
+    </div>
+    <script>
+      var resizefunc = [];
+    </script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.5/d3.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/detect.js"></script>
+    <script src="/js/fastclick.js"></script>
+    <script src="/js/jquery.slimscroll.js"></script>
+    <script src="/js/jquery.blockUI.js"></script>
+    <script src="/js/waves.js"></script>
+    <script src="/js/wow.min.js"></script>
+    <script src="/js/jquery.nicescroll.js"></script>
+    <script src="/js/jquery.scrollTo.min.js"></script>
+
+    <script src="/js/jquery.core.js"></script>
+    <script src="/js/jquery.app.js"></script>
+
+    <script src="/static/nvd3.js"></script>
+    <script src="/static/main.js"></script>
+  </body>
+</html>

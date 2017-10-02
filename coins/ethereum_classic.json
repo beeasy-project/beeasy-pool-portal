@@ -1,0 +1,6 @@
+{
+    "name": "Ethereum Classic",
+    "symbol": "ETC",
+    "algorithm": "dagger",
+    "normalHashing": true
+}
