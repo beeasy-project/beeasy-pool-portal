@@ -261,8 +261,8 @@ module.exports = function(logger, portalConfig, poolConfigs){
                     var hrate = shareMultiplier * coinStats.workers[worker].shares / portalConfig.website.stats.hashrateWindow;
                     var hratestring = _this.getReadableHashRateString(hrate);
                     coinStats.workers[worker].hashrateString = hratestring;
-                    workerstats.push(['zadd', coin + ":workerStat:" + worker, statGatherTime, JSON.stringify({time: statGatherTime, hashrate:hrate, hashratestring:hratestring, shares : hshares })]);
-                    workerstats.push(['zremrangebyscore', coin + ":workerStat:" + worker, '-inf', '(' + retentionTime]);
+                    workerstats.push(['zadd', coin + ":workerStat:" + worker.toLowerCase(), statGatherTime, JSON.stringify({time: statGatherTime, hashrate:hrate, hashratestring:hratestring, shares : hshares })]);
+                    workerstats.push(['zremrangebyscore', coin + ":workerStat:" + worker.toLowerCase(), '-inf', '(' + retentionTime]);
                 }
 
                 delete coinStats.hashrates;
@@ -338,14 +338,63 @@ module.exports = function(logger, portalConfig, poolConfigs){
         });
     };
 
-    this.getLiveStats = function(callback){
+    this.getLiveStats = function(label, isworking, isdc, callback){
         var redisCommandTemplates = [
             ['hgetall', 'summary:liveStat']
         ];
 
         redisStats.multi(redisCommandTemplates).exec(function( err, results )
         {
-            callback(err,  results[0] );
+            let result = tools.objSortByStatusAndName(results[0], label, isworking);
+            async.waterfall([
+                function (callback) {
+                    let noStatFarms = [];
+                    let counts = {
+                        alerted: 0,
+                        working: 0,
+                        stopped: 0
+                    };
+                    result.forEach(function (farm) {
+                        let parsedValue = JSON.parse(farm.value);
+                        if (parsedValue.Stat === undefined || parsedValue.Stat.hashrate === undefined)
+                            noStatFarms.push({
+                                label: farm.key,
+                                name: parsedValue.Name,
+                                curcoin: parsedValue.curcoin
+                            });
+                        switch(parsedValue.status){
+                            case 0:
+                                ++counts.stopped;
+                                break;
+                            case 1:
+                                ++counts.working;
+                                break;
+                            case 2:
+                                ++counts.alerted;
+                                break;
+                        }
+                    });
+                    callback(null, result, noStatFarms, counts);
+                }, function (result, noStatFarmArray, counts, callback) {
+                    if (noStatFarmArray.length){
+                        let addresult = {};
+                        async.each(noStatFarmArray, function (farm, asyncCallback) {
+                            redisStats.zrange(farm.curcoin + ":workerStat:" + farm.name, -1, -1, "withscores", function (err, results) {
+                                if (!err && results.length > 0){
+                                    let parsedResult = JSON.parse(results[0]);
+                                    addresult[farm.label] = JSON.stringify({hashrate:parsedResult.hashrate});
+                                }
+                                asyncCallback()
+                            })
+                        }, function (err) {
+                            callback(err, result, addresult, counts);
+                        })
+                    } else
+                        callback(null, result, null, counts)
+                }
+            ], function (err, result, addresult, counts) {
+                callback(err, result, addresult, counts);
+            });
         });
     };
 
@@ -368,12 +417,167 @@ module.exports = function(logger, portalConfig, poolConfigs){
         });
     };
 
+    this.getFarm = function (label, callback) {
+        redisStats.hget( 'summary:liveStat', label, function(err, result) {
+            if( !err && result  )
+            {
+                let farm = JSON.parse(result);
+                let farmdata = {
+                    key: label,
+                    value: JSON.stringify({
+                        Name: farm.Name,
+                        IP: farm.IP,
+                        curcoin: farm.curcoin,
+                        Stat: farm.Stat || {},
+                        status: farm.status,
+                        Time: farm.Time,
+                        upTime: farm.upTime,
+                        description: farm.description
+                    })
+                };
+                return callback(null, farmdata);
+            } else return callback("No farm error", null);
+        })
+    };
+
+    this.setFarm = function (label, description, callback) {
+        redisStats.hget( 'summary:liveStat', label, function(err, result) {
+            if( !err && result  )
+            {
+                let curstat = JSON.parse(result);
+                curstat.description = description;
+                redisStats.hset("summary:liveStat", label, JSON.stringify(curstat));
+                return callback(null, {error:null, result:true});
+            } else return callback("No farm error", {error:"No farm error", result:null});
+        })
+    };
+
+    this.deleteFarm = function(username, worker, ip, callback){
+        let label = (username + '/' + worker + " [" + ip + "]").toLowerCase();
+        redisStats.hget( 'summary:liveStat', label, function(err, result) {
+            if( !err && result  )
+            {
+                let curstat = JSON.parse(result);
+                if (curstat.status !== 0) return callback("You can`t delete this farm");
+                else {
+                    Object.keys(poolConfigs).forEach(function(coin){
+                        redisStats.hdel(coin + ":liveStat", label);
+                    });
+                    redisStats.hdel("summary:liveStat", label);
+                    return callback("Your command will be completing soon");
+                }
+            } else return callback("You can`t delete this farm");
+        })
+    };
+
+    this.disableAlert = function(username, worker, callback){
+        let label = (username + '/' + worker).toLowerCase();
+        redisStats.hscan("summary:liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, results) {
+            if( !err && results && results[1].length > 1 ){
+                let farmsForStop = {};
+                for (let a = 0; a < results[1].length; a += 2) {
+                    let curstat = JSON.parse(results[1][a + 1]);
+                    if (curstat.status === 2 && label === curstat.Name.toLowerCase()) {
+                        farmsForStop[results[1][a]] = curstat;
+                    }
+                }
+                if (Object.keys(farmsForStop).length === 0) return callback("You can`t disable this farm");
+                Object.keys(farmsForStop).forEach(function(farm){
+                    farmsForStop[farm].status = 0;
+                    redisStats.hset("summary:liveStat", farm, JSON.stringify(farmsForStop[farm]));
+                });
+                Object.keys(poolConfigs).forEach(function(coin){
+                    redisStats.hscan(coin + ":liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, coinresults) {
+                        if( !err && coinresults && coinresults[1].length > 1 ){
+                            for (let a = 0; a < coinresults[1].length; a += 2) {
+                                let curcoinstat = JSON.parse(coinresults[1][a + 1]);
+                                if (label === curcoinstat.Name.toLowerCase()){
+                                    curcoinstat.status = 0;
+                                    redisStats.hset(coin + ":liveStat", coinresults[1][a], JSON.stringify(curcoinstat));
+                                }
+                            }
+                        }
+                    })
+                });
+                return callback("Your command will be completing soon");
+            } else return callback("You can`t disable this farm");
+        })
+    };
+
+    this.stopFarm = function(username, worker, callback){
+        let label = (username + '/' + worker).toLowerCase();
+        redisStats.hscan("summary:liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, results) {
+            if( !err && results && results[1].length > 1 ){
+                let farmsForStop = {};
+                for (let a = 0; a < results[1].length; a += 2) {
+                    let curstat = JSON.parse(results[1][a + 1]);
+                    if (curstat.status > 0 && label === curstat.Name.toLowerCase()) {
+                        farmsForStop[results[1][a]] = curstat;
+                    }
+                }
+                if (Object.keys(farmsForStop).length === 0) return callback("You can`t stop this farm");
+                Object.keys(farmsForStop).forEach(function(farm){
+                    farmsForStop[farm].is_stoped = 1;
+                    redisStats.hset("summary:liveStat", farm, JSON.stringify(farmsForStop[farm]));
+                });
+                Object.keys(poolConfigs).forEach(function(coin){
+                    redisStats.hscan(coin + ":liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, coinresults) {
+                        if( !err && coinresults && coinresults[1].length > 1 ){
+                            for (let a = 0; a < coinresults[1].length; a += 2) {
+                                let curcoinstat = JSON.parse(coinresults[1][a + 1]);
+                                if (label === curcoinstat.Name.toLowerCase()){
+                                    curcoinstat.is_stoped = 1;
+                                    redisStats.hset(coin + ":liveStat", coinresults[1][a], JSON.stringify(curcoinstat));
+                                }
+                            }
+                        }
+                    })
+                });
+                return callback("Your command will be completing soon");
+            } else return callback("You can`t stop this farm");
+        })
+    };
+
+    this.startFarm = function(username, worker, callback){
+        let label = (username + '/' + worker).toLowerCase();
+        redisStats.hscan("summary:liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, results) {
+            if( !err && results && results[1].length > 1 ){
+                let farmsForStart = {};
+                for (let a = 0; a < results[1].length; a += 2) {
+                    let curstat = JSON.parse(results[1][a + 1]);
+                    if (label === curstat.Name.toLowerCase()) {
+                        farmsForStart[results[1][a]] = curstat;
+                    }
+                }
+                if (Object.keys(farmsForStart).length === 0) return callback("You can`t start this farm");
+                Object.keys(farmsForStart).forEach(function(farm){
+                    farmsForStart[farm].is_stoped = 0;
+                    redisStats.hset("summary:liveStat", farm, JSON.stringify(farmsForStart[farm]));
+                });
+                Object.keys(poolConfigs).forEach(function(coin){
+                    redisStats.hscan(coin + ":liveStat", 0 , 'match', label + "*",  'count', '1000', function(err, coinresults) {
+                        if( !err && coinresults && coinresults[1].length > 1 ){
+                            for (let a = 0; a < coinresults[1].length; a += 2) {
+                                let curcoinstat = JSON.parse(coinresults[1][a + 1]);
+                                if (label === curcoinstat.Name.toLowerCase()){
+                                    curcoinstat.is_stoped = 0;
+                                    redisStats.hset(coin + ":liveStat", coinresults[1][a], JSON.stringify(curcoinstat));
+                                }
+                            }
+                        }
+                    })
+                });
+                return callback("Your command will be completing soon");
+            } else return callback("You can`t start this farm");
+        })
+    };
+
     this.setWorkerIPLiveStats = function(coin, worker, time, stat, callback){
         if(worker.length === 0){
             callback({error:"No stat. No worker error.",  result :  null});
             return;
         }
-        redisStats.hscan(coin + ":liveStat", 0 , 'match', worker+"*",  'count', '1000', function(err, results) {
+        redisStats.hscan(coin + ":liveStat", 0 , 'match', worker.toLowerCase()+"*",  'count', '1000', function(err, results) {
             if (err || results == null) {
                 callback({error: "No stat. Redis request error.", result: null});
                 return;
@@ -382,10 +586,10 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 for (var a = 0; a < results[1].length; a += 2) {
 
                     var userstat = JSON.parse(results[1][a + 1]);
-                    if (worker === userstat.Name)
+                    if (worker.toLowerCase() === userstat.Name.toLowerCase())
                     {
                         userstat.Stat = stat;
-                        if (time) userstat.Time = time;
+                        userstat.statTime = time || Date.now();
                         redisStats.hset(coin + ":liveStat", results[1][a], JSON.stringify(userstat), function (err, results) {});
                         callback({error:null,  result :  true});
                         return;
@@ -404,19 +608,27 @@ module.exports = function(logger, portalConfig, poolConfigs){
         redisStats.hget( coin + ':liveStat', client.label, function(err, result) {
             if( !err && result  )
             {
-                var curstat = JSON.parse(result);
+                let curstat = JSON.parse(result);
                 client.stat = curstat.Stat;
                 client.avgStat = curstat.avgStat;
                 client.warningtimes = curstat.warningtimes;
+                client.statTime = curstat.statTime;
+                client.upTime = curstat.status !== 1 ? Date.now() : curstat.upTime;
+                client.status = 1;
+                client.is_stoped = curstat.is_stoped === 1 && Date.now() - curstat.Time < 10 * 60 * 1000 ? 0 : curstat.is_stoped;
             }
             redisStats.hset(coin + ':liveStat', client.label,
                 JSON.stringify({
                     'Name': client.workerName,
                     "IP": client.remoteAddress,
                     "Time": client.lastActivity,
+                    "status": client.status,
+                    "is_stoped": client.is_stoped,
                     "Stat": client.stat,
                     "avgStat": client.avgStat,
-                    "warningtimes": client.warningtimes
+                    "warningtimes": client.warningtimes,
+                    "statTime": client.statTime || Date.now(),
+                    "upTime": client.upTime || Date.now()
                 })
             );
             redisStats.zadd(coin + ':liveStat:' + clienthash, Math.floor(Date.now() / 1000),
@@ -587,7 +799,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
         redisStats.hgetall("users", function(err, result)
         {
             if( err || !result){
-                callback(null, "No such users");
+                callback("No such users", null);
                 return;
             }
             var telegramUsers=[];
@@ -601,7 +813,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 }
             }
 
-            callback(telegramUsers, null);
+            callback(null, telegramUsers);
         });
     };
 
@@ -822,31 +1034,41 @@ module.exports = function(logger, portalConfig, poolConfigs){
     this.addSysMessage = function(username, worker, message, callback){
         redisStats.zscan('users:messages:'+username, 0, 'match', worker+'::'+message+'::0', 'count', '100', function(err, results){
             if (results[1].length>1){
-                callback("Already in the queue.");
-                return;
+                let createdAt = JSON.parse(results[1][1]);
+                if (createdAt >= (Date.now() - 5 * 1000) / 1000){
+                    return callback("Already in the queue.");
+                } else {
+                    redisStats.zrem('users:messages:' + username, [worker, message, 0].join('::'), function (err, res) {
+                        redisStats.zadd('users:messages:' + username, Math.floor(Date.now() / 1000), [worker, message, 0].join('::'), function (err, results) {
+                            return callback("Your command will be completing soon");
+                        });
+                    });
+                }
+            } else {
+                redisStats.zadd('users:messages:' + username, Math.floor(Date.now() / 1000), [worker,message,0].join('::'), function(err, results) {
+                    return callback("Your command will be completing soon");
+                });
             }
-            redisStats.zadd('users:messages:' + username, Math.floor(Date.now() / 1000), [worker,message,0].join('::'), function(err, results) {
-                callback("Your command will be completing soon");
-            });
         })
     };
 
     this.getNewMessages = function(login, callback){
-        var minerData = tools.parseName(login || '');
+        let minerData = tools.parseName(login || '');
         redisStats.zscan('users:messages:'+minerData[0], 0, 'match', minerData[1]+'::*::0', 'count', '1000', function(err, results){
             if (results[1].length===0){
-                callback({messages:[], login:login});
-                return;
+                return callback({messages:[], login:login});
             } else {
-                var messageArray = [];
+                let messageArray = [];
                 for (index = 0; index < results[1].length; index += 2) {
-                    var message = JSON.parse(results[1][index].split('::')[1]);
-                    var time = results[1][index+1];
-                    messageArray.push(message);
-                    redisStats.zrem('users:messages:' + minerData[0], [minerData[1], JSON.stringify(message), 0].join('::'), function (err, res) {
-                        redisStats.zadd('users:messages:' + minerData[0], time, [minerData[1], JSON.stringify(message), Math.floor(Date.now() / 1000)].join('::'), function (err, results) {
+                    let message = JSON.parse(results[1][index].split('::')[1]);
+                    let time = results[1][index+1];
+                    if (time >= (Date.now() - 5 * 60 * 1000) / 1000) {
+                        messageArray.push(message);
+                        redisStats.zrem('users:messages:' + minerData[0], [minerData[1], JSON.stringify(message), 0].join('::'), function (err, res) {
+                            redisStats.zadd('users:messages:' + minerData[0], time, [minerData[1], JSON.stringify(message), Math.floor(Date.now() / 1000)].join('::'), function (err, results) {
+                            });
                         });
-                    });
+                    }
                 }
                 callback({messages:messageArray, login:login});
             }
@@ -1122,13 +1344,13 @@ module.exports = function(logger, portalConfig, poolConfigs){
         });
     };
 
-    this.getUsers = function(username, callback){
-        callback({dataArray:[], error:"Unsupported method"});
+    this.getUsers = function(username, page, sort, order, callback){
+        callback({dataArray:[], datacount:0, error:"Unsupported method"});
         return;
     };
 
     this.getUser = function(uname, callback){
-        callback({user:null, error:"Unsupported method"});
+        callback("Unsupported method",{user:null, error:"Unsupported method"});
         return;
     };
 
@@ -1142,6 +1364,27 @@ module.exports = function(logger, portalConfig, poolConfigs){
         return;
     };
 
+    this.getNewPaymentsNotice = function(userdata, callback){
+        callback("Unsupported method", null);
+        return;
+    };
+
+    this.recoverUser = function(login, callback){
+        callback({result:null, error:"Unsupported method"});
+    };
+
+    this.getNewRecoverCodes = function(userdata, callback){
+        callback([]);
+    };
+
+    this.getRecoverCode = function(code, callback){
+        callback(null, null);
+    };
+
+    this.resetPassword = function(reccode, password, callback){
+        callback({result:null, error:"Unsupported method"});
+    };
+
     this.dumpHistory = function(){
         var retentionTime = (((Date.now() / 1000) - portalConfig.website.stats.historicalRetention) | 0).toString();
         redisStats.keys("*:liveStat:*", function (err, results) {
@@ -1152,5 +1395,22 @@ module.exports = function(logger, portalConfig, poolConfigs){
             };
             if (results.length > 0) clearstat(0);
         });
-    }
+    };
+
+    this.getUserCommissions = function(login, password, coin, callback){
+        var result = {payoffs:[]};
+        if( Object.keys(poolConfigs[coin].rewardRecipients).indexOf(login) == -1 ) {
+            Object.keys(poolConfigs[coin].rewardRecipients).forEach(function (r) {
+                poolConfigs[coin].rewardRecipients[r].from.forEach(function (x) {
+                    if (x === "*" || x === login) {
+                        result.payoffs.push({
+                            to: r,
+                            subject: poolConfigs[coin].rewardRecipients[r].subject
+                        });
+                    }
+                });
+            });
+        }
+        return callback({error:null,dataArray:result.payoffs});
+    };
 };

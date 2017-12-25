@@ -1,5 +1,5 @@
-var redis = require('redis');
-var minerapi = require('./apiClaymore.js');
+let redis = require('redis');
+let minerapi = require('./apiClaymore.js');
 
 /*
 This module deals with handling shares when in internal payment processing mode. It connects to a redis
@@ -14,21 +14,22 @@ value: a hash with..
 
 
 module.exports = function(logger ){
-    var poolConfigs = JSON.parse(process.env.pools);
-    var portalConfig = JSON.parse(process.env.portalConfig);
+    let poolConfigs = JSON.parse(process.env.pools);
+    let portalConfig = JSON.parse(process.env.portalConfig);
 
 
-    var redisConfig = portalConfig.redis;
+    let redisConfig = portalConfig.redis;
 
 
-    var forkId = process.env.forkId;
-    var logSystem = 'Monitor';
-    var logComponent = 'local';
-    var logSubCat = 'Thread ' + (parseInt(forkId) + 1);
+    let forkId = process.env.forkId;
+    let logSystem = 'Monitor';
+    let logComponent = 'local';
+    let logSubCat = 'Thread ' + (parseInt(forkId) + 1);
 
-    var redisClient = redis.createClient(redisConfig.port, redisConfig.host);
+    let redisClient = redis.createClient(redisConfig.port, redisConfig.host);
 
-    var miners = [];
+    let miners = {};
+    let workers = {};
 
     redisClient.on('ready', function(){
         logger.debug(logSystem, logComponent, logSubCat, 'Monitoring processing setup with redis (' + redisConfig.host +
@@ -46,12 +47,12 @@ module.exports = function(logger ){
             logger.error(logSystem, logComponent, logSubCat, 'Redis version check failed');
             return;
         }
-        var parts = response.split('\r\n');
-        var version;
-        var versionString;
-        for (var i = 0; i < parts.length; i++){
+        let parts = response.split('\r\n');
+        let version;
+        let versionString;
+        for (let i = 0; i < parts.length; i++){
             if (parts[i].indexOf(':') !== -1){
-                var valParts = parts[i].split(':');
+                let valParts = parts[i].split(':');
                 if (valParts[0] === 'redis_version'){
                     versionString = valParts[1];
                     version = parseFloat(versionString);
@@ -67,13 +68,13 @@ module.exports = function(logger ){
         }
     });
 
-    var summaryMonitor;
+    let summaryMonitor;
     if (portalConfig.mysql.enabled === true)
         summaryMonitor = require('./miningMonitorSummarySql.js');
     else
         summaryMonitor = require('./miningMonitorSummaryRedis.js');
 
-    var monitoringInterval = setInterval(function(){
+    let monitoringInterval = setInterval(function(){
         try {
             processMonitoring();
         } catch(e){
@@ -81,95 +82,111 @@ module.exports = function(logger ){
         }
     }, 30*1000);
 
-    var processMonitoring = function()
+    let processMonitoring = function()
     {
         Object.keys(poolConfigs).forEach(function(coin) {
 
-            var poolOptions = poolConfigs[coin];
+            let poolOptions = poolConfigs[coin];
 
-            var curcoin = poolOptions.coin.name;
+            let curcoin = poolOptions.coin.name;
 
             redisClient.hgetall(curcoin + ":liveStat", function (err, object) {
                 if (err || !object) return;
+                workers = object;
                 Object.keys(object).forEach(function (x, i) {
-                    var client = x;
-                    var stat = JSON.parse(Object.values(object)[i]);
-                    var ip = stat.IP;
-                    var clientname = stat.Name;
+                    let client = x;
+                    let stat = JSON.parse(Object.values(object)[i]);
+                    if (stat.status !== 1) return;
+                    let ip = stat.IP;
+                    let clientname = stat.Name;
                     if (stat.Name.indexOf("/") !== -1) {
                         clientname = stat.Name.substr(0, stat.Name.indexOf("/"));
                     }
                     if (portalConfig.monitoring.local === true) {
-                        if (miners.indexOf(ip) === -1) {
-                            var miner = new minerapi.interface(ip, 3333, logger);
+                        if (Object.keys(miners).indexOf(client) === -1) {
+                            let miner = new minerapi.interface(ip, 3333, logger);
                             miner.on("stat", function (hashrate, cores, gpuhashrate, temperature, speed) {
-                                stat.Stat = {
-                                    hashrate: hashrate,
-                                    gpuhashrate: gpuhashrate,
-                                    temperature: temperature,
-                                    speed: speed
-                                };
-                                stat.Time = Date.now();
-                                process.send({
-                                    type: "proxystat",
-                                    client: stat.Name,
-                                    stat: stat.Stat,
-                                    coin: coin,
-                                    time: stat.Time
-                                });
-                                redisClient.hset(coin + ":liveStat", client, JSON.stringify(stat));
+                                redisClient.hget(coin + ":liveStat", client, function (err, result) {
+                                    if (err) {
+                                        return;
+                                    }
+                                    stat = JSON.parse(result);
+                                    stat.Stat = {
+                                        hashrate: hashrate,
+                                        gpuhashrate: gpuhashrate,
+                                        temperature: temperature,
+                                        speed: speed
+                                    };
+                                    stat.statTime = Date.now();
+                                    process.send({
+                                        type: "proxystat",
+                                        client: stat.Name,
+                                        stat: stat.Stat,
+                                        coin: coin,
+                                        time: stat.statTime
+                                    });
+                                    redisClient.hset(coin + ":liveStat", client, JSON.stringify(stat));
+                                })
                             });
                             miners[client] = miner;
                             miner.init();
-                            miner.stat();
                         }
+                        miners[client].stat()
                     }
-                    doAnalytics(curcoin, x, clientname, stat.Stat, stat.Time);
+                    doAnalytics(curcoin, x, clientname, stat);
                 });
             });
         });
     };
 
-    var doAnalytics = function(coin, client, clientname, statToAnalyse, time) {
+    let doAnalytics = function(coin, client, clientname, _stat) {
+        let statToAnalyse = _stat.Stat;
+        let time = _stat.Time;
         if (Date.now() - time > 10 * 60 * 1000) {
-            redisClient.hdel(coin + ':liveStat', client);
+            let anotherFarm;
+            if (portalConfig.monitoring.local === true || _stat.is_dc === 1){
+                anotherFarm = Object.keys(workers).find(el => {
+                    let parsedEl = JSON.parse(workers[el]);
+                    return (parsedEl.IP === _stat.IP || parsedEl.Name.toLowerCase() === _stat.Name.toLowerCase()) && el !== client && parsedEl.status === 1
+                });
+            } else {
+                anotherFarm = Object.keys(workers).find(el => {
+                    let parsedEl = JSON.parse(workers[el]);
+                    return parsedEl.Name.toLowerCase() === _stat.Name.toLowerCase() && el !== client && parsedEl.status === 1
+                });
+            }
+            _stat.status = anotherFarm || _stat.is_stoped === 1 ? 0 : 2;
+            redisClient.hset(coin + ":liveStat", client, JSON.stringify(_stat));
         } else if (Object.keys(statToAnalyse).length !== 4) {
             logger.error(logSystem, logComponent, logSubCat, 'No data for monitoring.');
         } else {
-            redisClient.hget(coin + ":liveStat", client, function (err, result) {
-                if (err || !result) {
-                    logger.error(logSystem, logComponent, logSubCat, 'No data for monitoring or error occurred: ' + JSON.stringify(err));
-                    return;
+            let userstat = _stat;
+            if (!userstat.avgStat) {
+                userstat.avgStat = {
+                    count: 1,
+                    hashrate: parseFloat(userstat.Stat.hashrate),
+                    gpuhashrate: [],
+                    temperature: [],
+                    speed: []
+                };
+                for (index = 0; index < userstat.Stat.gpuhashrate.length; ++index) {
+                    userstat.avgStat.gpuhashrate.push(parseFloat(userstat.Stat.gpuhashrate[index]));
+                    userstat.avgStat.temperature.push(parseFloat(userstat.Stat.temperature[index]));
+                    userstat.avgStat.speed.push(parseFloat(userstat.Stat.speed[index]));
                 }
-                var userstat = JSON.parse(result);
-                //userstat.Stat = statToAnalyse;
-                if (!userstat.avgStat) {
-                    userstat.avgStat = {
-                        count: 1,
-                        hashrate: parseFloat(userstat.Stat.hashrate),
-                        gpuhashrate: [],
-                        temperature: [],
-                        speed: []
-                    };
-                    for (index = 0; index < userstat.Stat.gpuhashrate.length; ++index) {
-                        userstat.avgStat.gpuhashrate.push(parseFloat(userstat.Stat.gpuhashrate[index]));
-                        userstat.avgStat.temperature.push(parseFloat(userstat.Stat.temperature[index]));
-                        userstat.avgStat.speed.push(parseFloat(userstat.Stat.speed[index]));
-                    }
-                } else {
-                    var curcount = userstat.avgStat.count;
-                    userstat.avgStat.count = (curcount === 50 ? 50 : curcount + 1);
-                    userstat.avgStat.hashrate = (curcount === 50 ? (userstat.avgStat.hashrate * 49 + parseFloat(userstat.Stat.hashrate)) / 50 : (userstat.avgStat.hashrate * curcount + parseFloat(userstat.Stat.hashrate)) / (curcount + 1));
-                    for (index = 0; index < userstat.Stat.gpuhashrate.length; ++index) {
-                        userstat.avgStat.gpuhashrate[index] = (curcount === 50 ? (userstat.avgStat.gpuhashrate[index] * 49 + parseFloat(userstat.Stat.gpuhashrate[index])) / 50 : (userstat.avgStat.gpuhashrate[index] * curcount + parseFloat(userstat.Stat.gpuhashrate[index])) / (curcount + 1));
-                        userstat.avgStat.temperature[index] = (curcount === 50 ? (userstat.avgStat.temperature[index] * 49 + parseFloat(userstat.Stat.temperature[index])) / 50 : (userstat.avgStat.temperature[index] * curcount + parseFloat(userstat.Stat.temperature[index])) / (curcount + 1));
-                        userstat.avgStat.speed[index] = (curcount === 50 ? (userstat.avgStat.speed[index] * 49 + parseFloat(userstat.Stat.speed[index])) / 50 : (userstat.avgStat.speed[index] * curcount + parseFloat(userstat.Stat.speed[index])) / (curcount + 1));
-                    }
+            } else {
+                let curcount = userstat.avgStat.count;
+                userstat.avgStat.count = (curcount === 50 ? 50 : curcount + 1);
+                userstat.avgStat.hashrate = (curcount === 50 ? (userstat.avgStat.hashrate * 49 + parseFloat(userstat.Stat.hashrate)) / 50 : (userstat.avgStat.hashrate * curcount + parseFloat(userstat.Stat.hashrate)) / (curcount + 1));
+                for (index = 0; index < userstat.Stat.gpuhashrate.length; ++index) {
+                    userstat.avgStat.gpuhashrate[index] = (curcount === 50 ? (userstat.avgStat.gpuhashrate[index] * 49 + parseFloat(userstat.Stat.gpuhashrate[index])) / 50 : (userstat.avgStat.gpuhashrate[index] * curcount + parseFloat(userstat.Stat.gpuhashrate[index])) / (curcount + 1));
+                    userstat.avgStat.temperature[index] = (curcount === 50 ? (userstat.avgStat.temperature[index] * 49 + parseFloat(userstat.Stat.temperature[index])) / 50 : (userstat.avgStat.temperature[index] * curcount + parseFloat(userstat.Stat.temperature[index])) / (curcount + 1));
+                    userstat.avgStat.speed[index] = (curcount === 50 ? (userstat.avgStat.speed[index] * 49 + parseFloat(userstat.Stat.speed[index])) / 50 : (userstat.avgStat.speed[index] * curcount + parseFloat(userstat.Stat.speed[index])) / (curcount + 1));
                 }
-                redisClient.hset(coin + ":liveStat", client, JSON.stringify(userstat));
-            });
+            }
+            redisClient.hset(coin + ":liveStat", client, JSON.stringify(userstat));
         }
-        summaryMonitor.run(coin, client, clientname, statToAnalyse, time, redisClient, logger, process);
+        summaryMonitor.run(coin, client, clientname, _stat, redisClient, logger, process);
     };
     setTimeout(processMonitoring, 100);
 };

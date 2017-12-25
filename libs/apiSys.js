@@ -1,19 +1,19 @@
-var fs = require('fs');
-var request = require('request');
-var nonce   = require('nonce');
-var crypto = require('crypto');
+let fs = require('fs');
+let request = require('request');
+let nonce   = require('nonce');
+let crypto = require('crypto');
 
 module.exports = function() {
     'use strict';
 
     //var portalConfig = JSON.parse(process.env.portalConfig);
     JSON.minify = JSON.minify || require("node-json-minify");
-    var portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
+    let portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
 
     // Module dependencies
 
     // Constants
-    var version         = '0.1.0',
+    let version         = '0.1.0',
         PUBLIC_API_URL  = portalConfig.website.protocol+'://'+portalConfig.website.host+'/api/sys',
         PRIVATE_API_URL = portalConfig.website.protocol+'://'+portalConfig.website.host+'/api/sys',
         USER_AGENT      = 'nomp/node-open-mining-portal';
@@ -50,7 +50,7 @@ module.exports = function() {
 
         // Make a public API request
         _public: function(parameters, callback){
-            var options = {
+            let options = {
                 method: 'GET',
                 url: PUBLIC_API_URL,
                 qs: parameters
@@ -61,7 +61,7 @@ module.exports = function() {
 
         // Make a private API request
         _private: function(method, parameters, callback){
-            var options;
+            let options;
 
             parameters.nonce = nonce();
             options = {
@@ -74,7 +74,7 @@ module.exports = function() {
         },
 
         farmrestart: function(userName, farmName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 secret : crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
@@ -84,7 +84,7 @@ module.exports = function() {
         },
 
         farmstop: function(userName, farmName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 secret : crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
@@ -94,7 +94,7 @@ module.exports = function() {
         },
 
         farmstart: function(userName, farmName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 secret : crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
@@ -104,7 +104,7 @@ module.exports = function() {
         },
 
         reboot: function(userName, farmName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 secret : crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
@@ -114,7 +114,7 @@ module.exports = function() {
         },
 
         changeworker: function(userName, farmName, newName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 newworker: newName,
@@ -125,7 +125,7 @@ module.exports = function() {
         },
 
         changefullname: function(userName, farmName, newName, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 newfullname: newName,
@@ -136,7 +136,7 @@ module.exports = function() {
         },
 
         coinswitch: function(userName, farmName, tocoin, callback){
-            var parameters = {
+            let parameters = {
                 username: userName,
                 farmName: farmName,
                 tocoin: tocoin,
@@ -144,6 +144,45 @@ module.exports = function() {
             };
 
             return this._private("coinswitch", parameters, callback);
+        },
+
+        userfarms: function(login, password, farmName, callback){
+            let parameters = {
+                login: login,
+                password : password,
+                secret: crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
+            };
+            if (farmName) parameters.farmName = farmName;
+
+            return this._private("farm", parameters, callback);
+        },
+
+        userbalance: function(login, password, callback){
+            let parameters = {
+                login: login,
+                password : password,
+                secret: crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
+            };
+
+            return this._private("getuserbalance", parameters, callback);
+        },
+
+        lastpayouts: function(login, password, callback){
+            let parameters = {
+                login: login,
+                password : password,
+                secret: crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
+            };
+
+            return this._private("lastpayouts", parameters, callback);
+        },
+
+        telegramuserlist: function(callback){
+            let parameters = {
+                secret: crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex')
+            };
+
+            return this._private("telegramuserlist", parameters, callback);
         }
     };
 

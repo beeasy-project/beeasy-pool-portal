@@ -1,17 +1,17 @@
-var fs = require('fs');
-var request = require('request');
-var nonce   = require('nonce');
+let fs = require('fs');
+let request = require('request');
+let nonce   = require('nonce');
 
 module.exports = function() {
     'use strict';
 
     JSON.minify = JSON.minify || require("node-json-minify");
-    var portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
+    let portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
 
     // Module dependencies
 
     // Constants
-    var version         = '0.1.0',
+    let version         = '0.1.0',
         PUBLIC_API_URL  = portalConfig.website.protocol+'://'+portalConfig.website.host+'/api/user',
         PRIVATE_API_URL = portalConfig.website.protocol+'://'+portalConfig.website.host+'/api/user',
         USER_AGENT      = 'nomp/node-open-mining-portal';
@@ -48,7 +48,7 @@ module.exports = function() {
 
         // Make a public API request
         _public: function(parameters, callback){
-            var options = {
+            let options = {
                 method: 'GET',
                 url: PUBLIC_API_URL,
                 qs: parameters
@@ -59,7 +59,7 @@ module.exports = function() {
 
         // Make a private API request
         _private: function(method, parameters, callback){
-            var options;
+            let options;
 
             parameters.nonce = nonce();
             options = {
@@ -72,7 +72,7 @@ module.exports = function() {
         },
 
         login: function(login, password, callback){
-            var parameters = {
+            let parameters = {
                     login: login,
                     password : password,
                     confcode : 'wo'
@@ -81,7 +81,7 @@ module.exports = function() {
             return this._private("login", parameters, callback);
         },
         telegram: function(login, password, telegram, callback){
-            var parameters = {
+            let parameters = {
                 login: login,
                 password : password,
                 telegram : telegram
@@ -90,7 +90,7 @@ module.exports = function() {
             return this._private("addtelegram", parameters, callback);
         },
         myfarms: function(login, password, farmName, callback){
-            var parameters = {
+            let parameters = {
                 login: login,
                 password : password
             };
@@ -99,7 +99,7 @@ module.exports = function() {
             return this._private("farm", parameters, callback);
         },
         livestats: function(login, password, callback){
-            var parameters = {
+            let parameters = {
                 login: login,
                 password : password
             };
@@ -107,11 +107,27 @@ module.exports = function() {
             return this._private("livestats", parameters, callback);
         },
         messages: function(login, callback){
-            var parameters = {
+            let parameters = {
                 login: login
             };
 
             return this._private("messages", parameters, callback);
+        },
+        mybalance: function(login, password, callback){
+            let parameters = {
+                login: login,
+                password : password
+            };
+
+            return this._private("getuserbalance", parameters, callback);
+        },
+        lastpayouts: function(login, password, callback){
+            let parameters = {
+                login: login,
+                password : password
+            };
+
+            return this._private("lastpayouts", parameters, callback);
         }
     };
 

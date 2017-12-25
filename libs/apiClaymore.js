@@ -92,6 +92,9 @@ function DaemonInterface(ip, port, logger) {
         });
     }
 
+    function close() {
+        socket.destroy();
+    }
 
     function handleMessage(command) {
         switch(command.id)
@@ -167,8 +170,7 @@ function DaemonInterface(ip, port, logger) {
     this.cmd = cmd;
     this.batchCmd = batchCmd;
     this.stat = SendStatRequest;
-
-
+    this.close = close;
 };
 
 DaemonInterface.prototype.__proto__ = events.EventEmitter.prototype;

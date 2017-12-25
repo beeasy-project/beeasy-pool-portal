@@ -6,6 +6,7 @@ var crypto = require('crypto');
 
 var MposCompatibility = require('./mposCompatibility.js');
 var ShareProcessor = require('./shareProcessor.js');
+const tools = require('./addtools.js');
 
 module.exports = function(logger){
 
@@ -22,15 +23,19 @@ module.exports = function(logger){
 
     var redisClient = redis.createClient(portalConfig.redis.port, portalConfig.redis.host);
 
+    let models = null;
+    if (portalConfig.mysql.enabled)
+        models = require('../models');
+
     //Handle messages from master process sent via IPC
     process.on('message', function(message) {
         switch(message.type){
             case 'minerstat':
                 for( var p in pools)
                 {
-
+                    var clients;
                     if( pools[p].stratumServer )
-                        var clients = pools[p].stratumServer.getStratumClients();
+                        clients = pools[p].stratumServer.getStratumClients();
                     for( var c in clients )
                         if( clients[c].getLabel() === message.client || clients[c].Name === message.client)
                             clients[c].stat = message.stat;
@@ -138,13 +143,13 @@ module.exports = function(logger){
         }
 
         //Functions required for internal payment processing
-        else{
+        else {
 
             var shareProcessor = new ShareProcessor(logger, poolOptions);
 
             handlers.auth = function(port, workerName, password, authCallback){
                 if (poolOptions.validateWorkerUsername !== true)
-                    authCallback(true);
+                    return authCallback(true);
                 else {
                     if (workerName.length === 40 ){
                         try {
@@ -154,8 +159,7 @@ module.exports = function(logger){
                         catch (e) {
                             authCallback(false);
                         }
-                    } else if(workerName.length ===  42 && workerName.substr(0, 2) == "0x" )
-                    {
+                    } else if(workerName.length ===  42 && workerName.substr(0, 2) === "0x" ){
                         try {
                             new Buffer(workerName.substr(2), 'hex');
                             authCallback(true);
@@ -163,18 +167,18 @@ module.exports = function(logger){
                         catch (e) {
                             authCallback(false);
                         }
-                    }else {
-                        var clientname = workerName;
-                        if( workerName.indexOf("/") != -1 )
-                        {
-                            clientname = workerName.substr(0, workerName.indexOf("/"));
-                        }
-                        redisClient.hget("users", clientname, function(err, result) {
-                            if( err ) {
-                                authCallback(false);
-                                return;
-                            }
-                            authCallback(true);
+                    } else {
+                        let names = tools.parseName(workerName);
+                        redisClient.hget("users", names[0].toLowerCase(), function(err, result) {
+                            if( err || !result){
+                                if (models){
+                                    models.User.findOne({where: {name: names[0]}}).then(user => {
+                                        if (!user) return authCallback(false);
+                                        else redisClient.hset("users", user.name.toLowerCase(), JSON.stringify({password:""}));
+                                        return authCallback(true);
+                                    });
+                                } else return authCallback(false);
+                            } else return authCallback(true);
                         });
                     }
                 }
@@ -226,24 +230,36 @@ module.exports = function(logger){
             handlers.share(isValidShare, isValidBlock, isBlock, data)
 
         }).on('client.live', function(client){
-            redisClient.hget( poolOptions.coin.name + ':liveStat', client.getLabel(), function(err, result) {
+            redisClient.hget( poolOptions.coin.name + ':liveStat', client.getLabel().toLowerCase(), function(err, result) {
+                let curstat;
                 if( !err && result  )
                 {
-                    var curstat = JSON.parse(result);
+                    curstat = JSON.parse(result);
                     client.stat = curstat.Stat;
                     client.avgStat = curstat.avgStat;
                     client.warningtimes = curstat.warningtimes;
+                    client.statTime = curstat.statTime;
+                    client.upTime = curstat.status !== 1 ? Date.now() : curstat.upTime;
+                    client.status = 1;
+                    client.is_stoped = curstat.is_stoped === 1 && Date.now() - curstat.Time < 10 * 60 * 1000 ? 0 : curstat.is_stoped;
+                    client.is_dc = curstat.is_dc;
                 }
-                redisClient.hset(poolOptions.coin.name + ':liveStat', client.getLabel(),
+                redisClient.hset(poolOptions.coin.name + ':liveStat', client.getLabel().toLowerCase(),
                     JSON.stringify({
                         'Name': client.workerName,
                         "IP": client.remoteAddress,
                         "Time": client.lastActivity,
+                        "status": client.status,
+                        "is_stoped": client.is_stoped,
                         "Stat": client.stat,
                         "avgStat": client.avgStat,
-                        "warningtimes": client.warningtimes
-                    }));
-                var clienthash = crypto.createHmac('sha256', client.getLabel()).digest('hex');
+                        "warningtimes": client.warningtimes,
+                        "statTime": client.statTime || Date.now(),
+                        "upTime": client.upTime || Date.now(),
+                        "is_dc": client.is_dc || 0
+                    })
+                );
+                let clienthash = crypto.createHmac('sha256', client.getLabel().toLowerCase()).digest('hex');
                 redisClient.zadd(poolOptions.coin.name + ':liveStat:' + clienthash, Math.floor(Date.now() / 1000),
                     JSON.stringify({
                         'Name': client.workerName,
@@ -252,6 +268,14 @@ module.exports = function(logger){
                         "Stat": client.stat
                     })
                 );
+                if (!curstat || (curstat.status !== 1 && client.status === 1)){
+                    let wnames = tools.parseName(client.workerName);
+                    process.send({
+                        type: "mineralert",
+                        client: wnames[0],
+                        message: "На ваш аккаунт заработал майнер " + wnames[1]
+                    });
+                }
 //                var claymore = new minerapi.interface(client.remoteAddress, 3333, logger);
 //                claymore.init();
 //                claymore.stat();
@@ -263,6 +287,7 @@ module.exports = function(logger){
                         "workerName": client.workerName,
                         "remoteAddress": client.remoteAddress,
                         "lastActivity": client.lastActivity,
+                        "status": 1,
                         "stat": client.stat,
                         "avgStat": client.avgStat,
                         "warningtimes": client.warningtimes

@@ -50,6 +50,7 @@ module.exports = function(logger){
         'miners.html': 'miners',
         'professionals.html': 'professionals',
         'start.html': 'start',
+        'terms.html': 'terms',
         'api.html': 'api',
         'mining_key.html': 'mining_key',
         '404.html': '404',
@@ -295,6 +296,15 @@ module.exports = function(logger){
         });
     };
 
+    let buildPassresetPage = function( code, callbackfx ){
+        let filePath = 'website/pages/passreset.html';
+        let pTemp ='Empty';
+        fs.readFile(filePath, 'utf8', function(err, data){
+            pTemp = dot.template(data);
+            callbackfx( pTemp);
+        });
+    };
+
     var buildAuthPage = function( callbackfx )
     {
         var filePath = 'website/pages/auth.html';
@@ -365,6 +375,16 @@ module.exports = function(logger){
         });
     };
 
+    var buildPaymentsPage = function(  callbackfx )
+    {
+        var filePath = 'website/pages/admin/payments.html';
+        var pTemp ='Empty';
+        fs.readFile(filePath, 'utf8', function(err, data){
+            pTemp = dot.template(data);
+            callbackfx( pTemp);
+        });
+    };
+
     var buildAdmUserPage = function( callbackfx )
     {
         var filePath = 'website/pages/admusers.html';
@@ -375,9 +395,29 @@ module.exports = function(logger){
         });
     };
 
-    var buildOldIndexPage = function(  callbackfx )
+    let buildAdmFarmPage = function( callbackfx )
+    {
+        let filePath = 'website/pages/admin/admfarm.html';
+        let pTemp ='Empty';
+        fs.readFile(filePath, 'utf8', function(err, data){
+            pTemp = dot.template(data);
+            callbackfx( pTemp);
+        });
+    };
+
+    var buildOldIndexPage = function( callbackfx )
     {
         var filePath = 'website/pages/home_old.html';
+        var pTemp ='Empty';
+        fs.readFile(filePath, 'utf8', function(err, data){
+            pTemp = dot.template(data);
+            callbackfx( pTemp);
+        });
+    };
+
+    var buildMinerPage = function( callbackfx )
+    {
+        var filePath = 'website/pages/software.html';
         var pTemp ='Empty';
         fs.readFile(filePath, 'utf8', function(err, data){
             pTemp = dot.template(data);
@@ -426,22 +466,18 @@ module.exports = function(logger){
     app.get('/admin', function(req, res, next){
         res.header('Content-Type', 'text/html');
         buildAdminPage( function(data) {
-            portalStats.getLiveStats( function (err, results) {
-                var liveConnections = results;
-                res.end(pageTemplates.index({
-                        page: data({
-                            liveConnections : liveConnections,
-                            stats: portalStats.stats,
-                            poolConfigs: poolConfigs,
-                            portalConfig: portalConfig
-                        }),
-                        selected: 'Admin',
+            res.end(pageTemplates.index({
+                    page: data({
                         stats: portalStats.stats,
                         poolConfigs: poolConfigs,
                         portalConfig: portalConfig
-                    }
-                ));
-            });
+                    }),
+                    selected: 'Admin',
+                    stats: portalStats.stats,
+                    poolConfigs: poolConfigs,
+                    portalConfig: portalConfig
+                }
+            ));
         });
     });
 
@@ -477,6 +513,21 @@ module.exports = function(logger){
         });
     });
 
+    app.get('/admin/payments', function(req, res, next){
+        res.header('Content-Type', 'text/html');
+        buildPaymentsPage( function(data) {
+            res.end(pageTemplates.admin({
+                page: data({
+                    stats: portalStats.stats,
+                    poolConfigs: poolConfigs,
+                    portalConfig: portalConfig
+                }),
+                stats: portalStats.stats,
+                poolConfigs: poolConfigs,
+                portalConfig: portalConfig}));
+        });
+    });
+
     app.get('/admin/user/:id*?', function(req, res, next){
         var user_id = req.params.id || '';
         res.header('Content-Type', 'text/html');
@@ -502,6 +553,32 @@ module.exports = function(logger){
         });
     });
 
+    app.get('/admin/farm/:user*?', function(req, res, next){
+        let username = req.params.user || '';
+        let label = req.params[0] || '';
+        let farm_label = username + label;
+        res.header('Content-Type', 'text/html');
+        portalStats.getFarm(farm_label, function(err, results) {
+            if (!results || err)
+                next();
+            else {
+                buildAdmFarmPage(function (data) {
+                    res.end(pageTemplates.admin({
+                        page: data({
+                            stats: portalStats.stats,
+                            poolConfigs: poolConfigs,
+                            portalConfig: portalConfig,
+                            farm: results
+                        }),
+                        stats: portalStats.stats,
+                        poolConfigs: poolConfigs,
+                        portalConfig: portalConfig
+                    }));
+                });
+            }
+        });
+    });
+
     app.get('/auth', function(req, res, next) {
         res.header('Content-Type', 'text/html');
         var refcode = req.query.refcode || '';
@@ -517,6 +594,25 @@ module.exports = function(logger){
                 stats: portalStats.stats,
                 poolConfigs: poolConfigs,
                 portalConfig: portalConfig}));
+        });
+    });
+
+    app.get('/passreset/:code', function(req, res, next){
+        let code = req.params.code;
+        res.header('Content-Type', 'text/html');
+        buildPassresetPage(code, function(data){
+            portalStats.getRecoverCode(code, function(err, result) {
+                res.end(pageTemplates.index({
+                        page: data({
+                            code: code,
+                            reccode: result
+                        }),
+                        stats: portalStats.stats,
+                        poolConfigs: poolConfigs,
+                        portalConfig: portalConfig
+                    }
+                ));
+            });
         });
     });
 
@@ -617,6 +713,21 @@ module.exports = function(logger){
         });
     });
 
+    app.get('/user/software', function(req, res, next) {
+        res.header('Content-Type', 'text/html');
+        buildMinerPage(function (data) {
+            res.end(pageTemplates.authorized({
+                page: data({
+                    stats: portalStats.stats,
+                    poolConfigs: poolConfigs,
+                    portalConfig: portalConfig
+                }),
+                stats: portalStats.stats,
+                poolConfigs: poolConfigs,
+                portalConfig: portalConfig}));
+        });
+    });
+
     app.get('/payout/:coin', function(req, res, next){
         var coin = req.params.coin;
         res.header('Content-Type', 'text/html');
@@ -691,6 +802,7 @@ module.exports = function(logger){
     app.use('/fonts', express.static('website/fonts'));
     app.use('/images', express.static('website/images'));
     app.use('/js', express.static('website/js'));
+    app.use('/sound', express.static('website/sound'));
     app.use('/favicon.png', express.static('website/favicon.png'));
 
     app.use(function(err, req, res, next){

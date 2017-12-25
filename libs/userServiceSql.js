@@ -2,12 +2,12 @@ const fs = require('fs');
 const uuid = require('uuid/v4');
 const async = require('async');
 const tools = require('./addtools.js');
-var models  = require('../models');
+let models  = require('../models');
 
 module.exports = function() {
     'use strict';
 
-    var _this;
+    let _this;
 
     // Constants
     const COOKIENAME        = 'usession',
@@ -23,8 +23,8 @@ module.exports = function() {
     userService.prototype = {
         constructor: userService(),
         createSession: function(user_id, serviceCallback){
-            var sGuid = uuid();
-            var bExists = true;
+            let sGuid = uuid();
+            let bExists = true;
             async.whilst(
                 function() { return bExists },
                 function(callback) {
@@ -48,7 +48,6 @@ module.exports = function() {
         },
         deleteSession: function (sGuid) {
             models.Usession.destroy({ where: {session: tools.hidePwd(sGuid)} });
-            return
         },
         restoreSession: function (sGuid, serviceCallback) {
             models.Usession.findOne({ where: {session: tools.hidePwd(sGuid)} }).then( session => {
@@ -60,6 +59,24 @@ module.exports = function() {
         },
         registerUser: function (login, password, refcode, res, stats, serviceCallback) {
             stats.registerUser(login, password, refcode, function( response ){
+                if (response.result) {
+                    _this.createSession(response.user_id, function (err, result) {
+                        if (err) serviceCallback({result: null, error: err});
+                        _this.setCookie(res, COOKIENAME, result, MAXAGENOREMEMBER);
+                        serviceCallback(response);
+                    });
+                } else {
+                    serviceCallback(response);
+                }
+            });
+        },
+        recoverUser: function (login, res, stats, serviceCallback) {
+            stats.recoverUser(login, function( response ){
+                serviceCallback(response);
+            });
+        },
+        resetPassword: function (reccode, password, res, stats, serviceCallback) {
+            stats.resetPassword(reccode, password, function( response ){
                 if (response.result) {
                     _this.createSession(response.user_id, function (err, result) {
                         if (err) serviceCallback({result: null, error: err});
@@ -85,7 +102,7 @@ module.exports = function() {
             });
         },
         checkSession: function (req) {
-            var bExist = false;
+            let bExist = false;
             Object.keys(req.cookies).forEach(function(cookie) {
                 if (cookie === COOKIENAME) bExist = true
             });

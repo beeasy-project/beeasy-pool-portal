@@ -18,28 +18,34 @@
                 </div>
               {{?}}
                 <div class="col-sm-12">
-                <div class="card-box" id="tblusers">
-                  <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                <div class="card-box table-responsive" id="tblusers">
+                  <table class="tablesaw m-t-0 table m-b-20 table-striped" data-tablesaw-mode="stack">
                     <thead>
                       <tr>
                         {{? !it.user }}
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">ID</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">Name</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Telegram</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Wallets</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Special Payoffs</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Link</th>
+                          <th class="sorting" scope="col" data-tablesaw-priority="persist">ID</th>
+                          <th class="sorting_asc" scope="col" data-tablesaw-priority="1">Name</th>
+                          <th scope="col" data-tablesaw-priority="2">Telegram</th>
+                          <th scope="col" data-tablesaw-priority="3">Wallets</th>
+                          <th scope="col" data-tablesaw-priority="3">Balance</th>
+                          <th scope="col" data-tablesaw-priority="4">Special Payoffs</th>
+                          <th scope="col" data-tablesaw-priority="5">Link</th>
                         {{??}}
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">Recipient</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Percent</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Subject</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Link</th>
+                          <th scope="col" data-tablesaw-priority="1">Recipient</th>
+                          <th scope="col" data-tablesaw-priority="2">Percent</th>
+                          <th scope="col" data-tablesaw-priority="3">Subject</th>
+                          <th scope="col" data-tablesaw-priority="4">Link</th>
                         {{?}}
                       </tr>
                     </thead>
                     <tbody id="users">
                     </tbody>
                   </table>
+                {{? !it.user }}
+                  <div class="dataTables_paginate paging_simple_numbers">
+                    <ul id="pagination" class="pagination"></ul>
+                  </div>
+                {{?}}
                 </div>
               </div>
             {{? it.user }}
@@ -49,18 +55,18 @@
                           <form id="payoffsForm" class="form-inline m-t-30" role="form">
                               <div class="row">
                                   <div class="form-group col-sm-3 m-b-20">
-                                      <label for="recipient" class="m-r-10">Recipient</label>
-                                      <input type="text" class="form-control m-r-10" id="recipient" required name="recipient" value="" placeholder="Add recipient" />
+                                      <label for="recipient" class="m-r-10">Получатель</label>
+                                      <input type="text" class="form-control m-r-10" id="recipient" required name="recipient" value="" placeholder="ник пользователя" />
                                   </div>
                                   <div class="form-group col-sm-3 m-b-20">
-                                      <label for="percent" class="m-r-10">Percent</label>
-                                      <input type="text" class="form-control m-r-10" id="percent" required name="percent" value="" placeholder="percent" />
+                                      <label for="percent" class="m-r-10">Процент</label>
+                                      <input type="text" class="form-control m-r-10" id="percent" required name="percent" value="" placeholder="0.1 будет 10%" />
                                   </div>
                                   <div class="form-group col-sm-3 m-b-20">
-                                      <label for="subject" class="m-r-10">Subject</label>
-                                      <input type="text" class="form-control m-r-10" id="subject" required name="subject" value="" placeholder="subject" />
+                                      <label for="subject" class="m-r-10">Назначение</label>
+                                      <input type="text" class="form-control m-r-10" id="subject" required name="subject" value="" placeholder="без процентов" />
                                   </div>
-                                  <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="addPayoff">Add</button>
+                                  <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="addPayoff">Сохранить</button>
                               </div>
                           </form>
                       </div>
@@ -70,6 +76,7 @@
             {{?}}
 
               <script src="/static/admin.js"></script>
+              <script src="/js/jquery.twbsPagination.min.js"></script>
               <script>
                 var user = {{=JSON.stringify(it.user)}};
                 $(document).ready(function(){

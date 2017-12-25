@@ -1,36 +1,51 @@
 const Telegraf = require('telegraf');
 
-var async = require('async');
-var redis = require('redis');
-var api = require('./api.js');
-var apiuser = require('./apiUser.js');
-var apisys = require('./apiSys.js');
-const userService = require('./userService.js');
-//const tools = require('./addtools.js');
-//var models  = require('../models');
+let async = require('async');
+let redis = require('redis');
+let api = require('./api.js');
+let apiuser = require('./apiUser.js');
+let apisys = require('./apiSys.js');
+const tools = require('./addtools.js');
+//let models  = require('../models');
 
 module.exports = function(logger ){
-    var poolConfigs = JSON.parse(process.env.pools);
-    var portalConfig = JSON.parse(process.env.portalConfig);
+    let poolConfigs = JSON.parse(process.env.pools);
+    let portalConfig = JSON.parse(process.env.portalConfig);
 
-    var portalApi = new api(logger, portalConfig, poolConfigs);
-    var userApi = new apiuser();
-    var sysApi = new apisys();
-    const uService = new userService();
-    var portalStats = portalApi.stats;
+    let portalApi = new api(logger, portalConfig, poolConfigs);
+    let userApi = new apiuser();
+    let sysApi = new apisys();
+    let portalStats = portalApi.stats;
 
-    var redisConfig = portalConfig.redis;
+    let redisConfig = portalConfig.redis;
 
 
-    var forkId = process.env.forkId;
-    var logSystem = 'Monitor';
-    var logComponent = 'local';
-    var logSubCat = 'Thread ' + (parseInt(forkId) + 1);
+    let forkId = process.env.forkId;
+    let logSystem = 'Monitor';
+    let logComponent = 'local';
+    let logSubCat = 'Thread ' + (parseInt(forkId) + 1);
 
-    var redisClient = redis.createClient(redisConfig.port, redisConfig.host);
+    let redisClient = redis.createClient(redisConfig.port, redisConfig.host);
 
-    var admins = {};
-    var users = new Object();
+    let admins = {};
+    let users = {};
+    setTimeout(function() {
+        sysApi.telegramuserlist(function (err, results) {
+            if (err || !results) return;
+            results.forEach(function (user) {
+                users[user.userdata.telegram] = {login: user.userdata.name, password: user.userdata.pass};
+            })
+        });
+        portalStats.getAdminTelegrams(function (results, err) {
+            if (err)
+                logger.debug(logSystem, logComponent, logSubCat, 'Error: ' + err);
+            else {
+                results.forEach(function (telegramId) {
+                    admins[telegramId] = {login : 'admin', password : ''};
+                });
+            }
+        });
+    },1000);
 
     redisClient.on('ready', function(){
         logger.debug(logSystem, logComponent, logSubCat, 'Monitoring processing setup with redis (' + redisConfig.host +
@@ -48,12 +63,12 @@ module.exports = function(logger ){
             logger.error(logSystem, logComponent, logSubCat, 'Redis version check failed');
             return;
         }
-        var parts = response.split('\r\n');
-        var version;
-        var versionString;
-        for (var i = 0; i < parts.length; i++){
+        let parts = response.split('\r\n');
+        let version;
+        let versionString;
+        for (let i = 0; i < parts.length; i++){
             if (parts[i].indexOf(':') !== -1){
-                var valParts = parts[i].split(':');
+                let valParts = parts[i].split(':');
                 if (valParts[0] === 'redis_version'){
                     versionString = valParts[1];
                     version = parseFloat(versionString);
@@ -77,8 +92,6 @@ module.exports = function(logger ){
             reply('To start using me u must be logged in. Just use "/login name password" command.\nFor additional information use /help command just after logged in.');
         else
             reply('For additional information use /help command.')
-
-        return;
     });
 
     tg.command('help', ({from, reply}) => {
@@ -93,12 +106,10 @@ module.exports = function(logger ){
                     +'\nIf u want to do remote reboot your computer just use "/reboot farmname" command\nFor log out use /logout'
                     +'\n\nIn additional, you will be receive alerts about various critical states of your farms.');
         }
-
-        return;
     });
 
     tg.command('admin', ({from, reply, update, updateType, updateSubType}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( command.length < 2 ) return reply("Please use /admin password");
         if( typeof admins[from.id] !== "undefined") return reply("You are already admin");
         portalStats.loginAdmin('admin', command[1], function (response) {
@@ -116,18 +127,18 @@ module.exports = function(logger ){
     });
 
     tg.command('login', ({from, reply, update, updateType, updateSubType}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( command.length < 3 ) return reply("Please use /login login password");
         if( typeof users[ command[1] ] !== "undefined") return reply("You are already connected");
 
         userApi.login(command[1], command[2], function(err, response){
             if (!response) return reply(err);
             if (response.result === true ) {
-                users[from.id] = {login : command[1], password : command[2]};
+                users[from.id] = {login : command[1], password : tools.hidePwd(command[2])};
                 userApi.telegram(command[1], command[2], from.id, function(err, response){});
                 return reply("Welcome, " + from.first_name + '!', {
                     reply_markup: {
-                        keyboard: [[{text:"/stat"},{text:"/myfarms"}],[{text:"/help"},{text:"/logout"}]]
+                        keyboard: [[{text:"/stat"},{text:"/myfarms"}],[{text:"/balance"},{text:"/lastpayments"}],[{text:"/help"},{text:"/logout"}]]
                     }
                 });
             }
@@ -137,7 +148,7 @@ module.exports = function(logger ){
 
     tg.command('logout', ({from, reply, update, updateType, updateSubType}) => {
 
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
 
         if( command.length !== 1 ) return reply("Please use /logout");
         if( typeof users[ from.id ] === "undefined" && typeof admins[ from.id ] === "undefined") return reply("You are not connected");
@@ -152,19 +163,24 @@ module.exports = function(logger ){
     });
 
     tg.command('stat', ({from, reply, update, updateType, updateSubType}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
 
         if (typeof admins[from.id] === "undefined" && typeof users[from.id] === "undefined"  )
             return reply("You are not logged in!");
 
         if (typeof admins[from.id] !== "undefined") {
-            portalStats.getLiveStats(function (err, results) {
-                for (var r in results) {
-                    var userdata = JSON.parse(results[r]);
-                    var replydata = userdata.Name;
+            portalStats.getLiveStats('', 0, 1, function (err, results) {
+                let cumulativeHashrate = 0;
+                let replydata = '';
+                results.forEach(function(farm) {
+                    let userdata = JSON.parse(farm.value);
+                    if (userdata.status !== 1) return;
+                    replydata += '\n\n' + userdata.Name;
                     if (userdata.Stat !== undefined) {
-                        if (userdata.Stat.hashrate !== undefined)
+                        if (userdata.Stat.hashrate !== undefined) {
                             replydata = replydata + " HashRate :" + userdata.Stat.hashrate;
+                            cumulativeHashrate += parseFloat(userdata.Stat.hashrate);
+                        }
                         if (userdata.Stat.gpuhashrate !== undefined)
                             replydata = replydata + "[" + userdata.Stat.gpuhashrate.toString();
                         if (userdata.Stat.temperature !== undefined)
@@ -176,18 +192,22 @@ module.exports = function(logger ){
                         if (typeof userdata.Time !== "undefined")
                             replydata = replydata + ".\nData was received " + Math.floor((Date.now() - userdata.Time) / 1000) + " sec. ago";
                     }
-                    reply(replydata);
-                }
+                });
+                replydata += '\n\nИтого общий хешрейт: ' + cumulativeHashrate;
+                reply(replydata);
             });
-        }
-        if (typeof users[from.id] !== "undefined") {
+        } else if (typeof users[from.id] !== "undefined") {
             userApi.livestats(users[from.id].login, users[from.id].password, function (err, results) {
-                for (var r in results.result) {
-                    var userdata = JSON.parse(results.result[r]);
-                    var replydata = userdata.Name;
+                let cumulativeHashrate = 0;
+                let replydata = '';
+                for (let r in results.result) {
+                    let userdata = JSON.parse(results.result[r]);
+                    replydata += '\n\n' + userdata.Name;
                     if (userdata.Stat !== undefined) {
-                        if (userdata.Stat.hashrate !== undefined)
+                        if (userdata.Stat.hashrate !== undefined) {
                             replydata = replydata + " HashRate :" + userdata.Stat.hashrate;
+                            cumulativeHashrate += parseFloat(userdata.Stat.hashrate);
+                        }
                         if (userdata.Stat.gpuhashrate !== undefined)
                             replydata = replydata + "[" + userdata.Stat.gpuhashrate.toString();
                         if (userdata.Stat.temperature !== undefined)
@@ -199,16 +219,15 @@ module.exports = function(logger ){
                         if (typeof userdata.Time !== "undefined")
                             replydata = replydata + ".\nData was received " + Math.floor((Date.now() - userdata.Time) / 1000) + " sec. ago";
                     }
-                    reply(replydata);
                 }
+                replydata += '\n\nИтого общий хешрейт: ' + cumulativeHashrate;
+                reply(replydata);
             });
         }
-
-        return;
     });
 
     tg.command('restart', ({from, reply, update}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( typeof users[ from.id ] === "undefined") return reply("You are not logged in. Please /login");
         if( command.length !== 2 ) return reply("Please use /restart farmname");
 
@@ -221,7 +240,7 @@ module.exports = function(logger ){
     });
 
     tg.command('farmstop', ({from, reply, update}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( typeof users[ from.id ] === "undefined") return reply("You are not logged in. Please /login");
         if( command.length !== 2 ) return reply("Please use /farmstop farmname");
 
@@ -234,7 +253,7 @@ module.exports = function(logger ){
     });
 
     tg.command('farmstart', ({from, reply, update}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( typeof users[ from.id ] === "undefined") return reply("You are not logged in. Please /login");
         if( command.length !== 2 ) return reply("Please use /farmstart farmname");
 
@@ -247,7 +266,7 @@ module.exports = function(logger ){
     });
 
     tg.command('reboot', ({from, reply, update}) => {
-        var command = update.message.text.split(' ');
+        let command = update.message.text.split(' ');
         if( typeof users[ from.id ] === "undefined") return reply("You are not logged in. Please /login");
         if( command.length !== 2 ) return reply("Please use /reboot/ farmname");
 
@@ -262,11 +281,11 @@ module.exports = function(logger ){
     tg.command('myfarms', ({from, reply, update}) => {
         if( typeof users[from.id] === "undefined" ) return reply("You are not logged in. Please /login");
 
-        userApi.myfarms(users[from.id].login, users[from.id].password, '', function (err, results) {
+        sysApi.userfarms(users[from.id].login, users[from.id].password, '', function (err, results) {
 
             if (results.error) return reply(results.error);
 
-            var inlineButtons = []
+            let inlineButtons = [];
             for (index = 0; index < results.dataArray.length; ++index) {
                 inlineButtons.push([{text: results.dataArray[index], callback_data: "farm "+results.dataArray[index]}])
             }
@@ -279,8 +298,38 @@ module.exports = function(logger ){
         });
     });
 
+    tg.command('balance', ({from, reply}) => {
+        if( typeof users[from.id] === "undefined" ) return reply("You are not logged in. Please /login");
+
+        sysApi.userbalance(users[from.id].login, users[from.id].password, function (err, results) {
+
+            if (results.error) return reply(results.error);
+
+            let replyStr = '';
+            Object.keys(results.result.balance).forEach(function(coin) {
+                replyStr += coin + ': ' + results.result.balance[coin].balance + ' ' + results.result.balance[coin].sym + '\n';
+            });
+            reply(replyStr);
+        });
+    });
+
+    tg.command('lastpayments', ({from, reply}) => {
+        if( typeof users[from.id] === "undefined" ) return reply("You are not logged in. Please /login");
+
+        sysApi.lastpayouts(users[from.id].login, users[from.id].password, function (err, results) {
+
+            if (results.error) return reply(results.error);
+
+            let replyStr = '';
+            results.dataArray.forEach(function(payment) {
+                replyStr += new Date(payment.time*1000).toLocaleString() + ' : ' + payment.coin + ' : ' + payment.amount + ' : <a href="https://etherscan.io/tx/' + payment.tx + '" target="_blank">' + payment.tx + '</a>\n';
+            });
+            tg.telegram.sendMessage(from.id, replyStr, {parse_mode:"HTML"});
+        });
+    });
+
     tg.action(/^farm .+/, ({from, reply, update, updateType, updateSubType}) => {
-        var farmname = update.callback_query.data.split(' ');
+        let farmname = update.callback_query.data.split(' ');
         if( typeof users[from.id] === "undefined" ) return reply("You are not logged in. Please /login");
 
         if( farmname.length !== 2 ) return reply("Error in query.");
@@ -292,10 +341,10 @@ module.exports = function(logger ){
                                   [{text: '/restart', callback_data: "action "+farmname+" restart"},{text: '/reboot', callback_data: "action "+farmname+" reboot"}]]
             }
         })
-    })
+    });
 
     tg.action(/^action .+/, ({from, reply, update, updateType, updateSubType}) => {
-        var command = update.callback_query.data.split(' ');
+        let command = update.callback_query.data.split(' ');
         if( typeof users[ from.id ] === "undefined") return reply("You are not logged in. Please /login");
         if( command.length !== 3 ) return reply("Error in query.");
 
@@ -316,17 +365,17 @@ module.exports = function(logger ){
         }], function(result){
             reply(result);
         });
-    })
+    });
 
     tg.startPolling();
 
-    var farmreboot = function (isAdmin, login, password, farmname, callback) {
+    let farmreboot = function (isAdmin, login, password, farmname, callback) {
         if (isAdmin){
             sysApi.reboot(login, farmname, function (err, results) {
                 return callback(results);
             });
         } else {
-            userApi.myfarms(login, password, farmname, function (err, results) {
+            sysApi.userfarms(login, password, farmname, function (err, results) {
 
                 if (results.error) return callback(results.error);
 
@@ -340,13 +389,13 @@ module.exports = function(logger ){
         }
     };
 
-    var farmstart = function (isAdmin, login, password, farmname, callback) {
+    let farmstart = function (isAdmin, login, password, farmname, callback) {
         if (isAdmin){
             sysApi.farmstart(login, farmname, function (err, results) {
                 return callback(results);
             });
         } else {
-            userApi.myfarms(login, password, farmname, function (err, results) {
+            sysApi.userfarms(login, password, farmname, function (err, results) {
 
                 if (results.error) return callback(results.error);
 
@@ -360,13 +409,13 @@ module.exports = function(logger ){
         }
     };
 
-    var farmstop = function (isAdmin, login, password, farmname, callback) {
+    let farmstop = function (isAdmin, login, password, farmname, callback) {
         if (isAdmin){
             sysApi.farmstop(login, farmname, function (err, results) {
                 return callback(results);
             });
         } else {
-            userApi.myfarms(login, password, farmname, function (err, results) {
+            sysApi.userfarms(login, password, farmname, function (err, results) {
 
                 if (results.error) return callback(results.error);
 
@@ -380,13 +429,13 @@ module.exports = function(logger ){
         }
     };
 
-    var farmrestart = function (isAdmin, login, password, farmname, callback) {
+    let farmrestart = function (isAdmin, login, password, farmname, callback) {
         if (isAdmin){
             sysApi.farmrestart(login, farmname, function (err, results) {
                 return callback(results);
             });
         } else {
-            userApi.myfarms(login, password, farmname, function (err, results) {
+            sysApi.userfarms(login, password, farmname, function (err, results) {
 
                 if (results.error) return callback(results.error);
 
@@ -406,7 +455,7 @@ module.exports = function(logger ){
         portalStats.getFarmlist(function (results) {
             if (results.error) return reply(results.error);
 
-            var inlineButtons = []
+            let inlineButtons = [];
             for (index = 0; index < results.dataArray.length; ++index) {
                 if (results.dataArray[index][1] !== ''){
                     inlineButtons.push([{text: results.dataArray[index][0], callback_data: "admfarm "+results.dataArray[index][0]+" "+results.dataArray[index][1]}])
@@ -422,8 +471,8 @@ module.exports = function(logger ){
     });
 
     tg.action(/^admfarm .+/, ({from, reply, update, updateType, updateSubType}) => {
-        var names = update.callback_query.data.split(' ');
-        var username, farmname = '';
+        let names = update.callback_query.data.split(' ');
+        let username, farmname = '';
         if( typeof admins[from.id] === "undefined" ) return reply("You are not logged in. Please login as administrator");
 
         if( names.length !== 3 ) return reply("Error in query.");
@@ -438,10 +487,10 @@ module.exports = function(logger ){
                     [{text: '/restart', callback_data: "admaction "+username+" "+farmname+" restart"},{text: '/reboot', callback_data: "admaction "+username+" "+farmname+" reboot"}]]
             }
         })
-    })
+    });
 
     tg.action(/^admaction .+/, ({from, reply, update, updateType, updateSubType}) => {
-        var command = update.callback_query.data.split(' ');
+        let command = update.callback_query.data.split(' ');
         if( typeof admins[from.id] === "undefined" ) return reply("You are not logged in. Please login as administrator");
         if( command.length !== 4 ) return reply("Error in query.");
 
@@ -462,9 +511,10 @@ module.exports = function(logger ){
         }], function(result){
             reply(result);
         });
-    })
+    });
+
     process.on("message", function(msg){
-        if( msg.type == "mineralert" )
+        if( msg.type === "mineralert" )
         {
             portalStats.getUserTelegram(msg.client,function (results, err) {
                 if (err)
@@ -485,17 +535,33 @@ module.exports = function(logger ){
 
     });
 
-    var resendConfirmations = function()
+    let resendConfirmations = function()
     {
-        portalStats.getTelegramUsers(function (results, err) {
+        sysApi.telegramuserlist(function (err, results) {
             if (err) return;
-            results.forEach(function (user) {
+            async.each(results, function(user, callback){
                 portalStats.getNewConfirmationCodes(user.userdata, function (codes) {
                     codes.forEach(function (code) {
                         tg.telegram.sendMessage(user.userdata.telegram, 'new confirmation code: '+code+' \nWill expire in 2 minutes.');
                     });
-                })
-            })
+                });
+                portalStats.getNewPaymentsNotice(user.userdata, function (err, payments) {
+                    if (err) return;
+                    let replyStr = 'You receive new payments:\n';
+                    payments.forEach(function(payment) {
+                        replyStr += new Date(payment.time*1000).toLocaleString() + ' : ' + payment.coin + ' : ' + payment.amount + ' : <a href="https://etherscan.io/tx/' + payment.tx + '" target="_blank">' + payment.tx + '</a>\n';
+                    });
+                    tg.telegram.sendMessage(user.userdata.telegram, replyStr, {parse_mode:"HTML"});
+                });
+                portalStats.getNewRecoverCodes(user.userdata, function (codes) {
+                    let replyStr = 'Был получен запрос на восстановление пароля. Если вы не делали этого просто проигнорируйте это сообщение.\nДля восстановления пароля перйдите по ссылке. Ссылка будет действительна в течении 5 минут.\nВ любом случае мы рекомендуем использовать двухфакторную авторизацию для лучшей безопастности.\n';
+                    codes.forEach(function (code) {
+                        tg.telegram.sendMessage(user.userdata.telegram, replyStr + '<a href="https://easypool.me/passreset/' + code + '" target="_blank">Сбросить пароль</a>', {parse_mode:"HTML"});
+                    });
+                });
+                callback();
+            },function(err) {
+            });
         })
     };
     setInterval(resendConfirmations, 10 * 1000);

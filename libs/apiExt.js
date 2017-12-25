@@ -1,13 +1,13 @@
-var nanopoolApi = require('./apiNanopool.js');
-var apiEtherscan = require('./apiEtherscan.js');
-var apiEtcchain = require('./apiEtcchain.js');
+const nanopoolApi = require('./apiNanopool.js');
+const apiEtherscan = require('./apiEtherscan.js');
+const apiEtcchain = require('./apiEtcchain.js');
 
-function apiExt(poolConfigs){
-    var poolapiList = {};
-    var paymentApiList = {};
+function ApiExt(poolConfigs) {
+    let poolapiList = {};
+    let paymentApiList = {};
 
     this.getBalance = function(coin,callback){
-        var extApi = poolapiList[coin];
+        let extApi = poolapiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -18,7 +18,7 @@ function apiExt(poolConfigs){
     };
 
     this.getPayments = function(coin,callback){
-        var extApi = poolapiList[coin];
+        let extApi = poolapiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -29,7 +29,7 @@ function apiExt(poolConfigs){
     };
 
     this.getPaymentBalance = function(coin,callback){
-        var extApi = paymentApiList[coin];
+        let extApi = paymentApiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -40,7 +40,7 @@ function apiExt(poolConfigs){
     };
 
     this.getPaymentTransaction = function(coin, tx, callback){
-        var extApi = paymentApiList[coin];
+        let extApi = paymentApiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -51,7 +51,7 @@ function apiExt(poolConfigs){
     };
 
     this.getPaymentAccounts = function(coin,callback){
-        var extApi = paymentApiList[coin];
+        let extApi = paymentApiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -62,7 +62,7 @@ function apiExt(poolConfigs){
     };
 
     this.paymentCmd = function(coin, command, args, callback){
-        var extApi = paymentApiList[coin];
+        let extApi = paymentApiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -73,7 +73,7 @@ function apiExt(poolConfigs){
     };
 
     this.paymentBatchCmd = function(coin, commands, callback){
-        var extApi = paymentApiList[coin];
+        let extApi = paymentApiList[coin];
         switch(coin){
             case 'ethereum':
             case 'ethereum classic':
@@ -105,11 +105,11 @@ function apiExt(poolConfigs){
         });
     }
 
-    apiExt.prototype = {
+    ApiExt.prototype = {
         constructor: init(poolConfigs)
     };
 
     return this;
 }
 
-module.exports = apiExt;
+module.exports = ApiExt;

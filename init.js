@@ -1,21 +1,23 @@
-var fs = require('fs');
-var path = require('path');
-var os = require('os');
-var cluster = require('cluster');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const cluster = require('cluster');
 
-var async = require('async');
-var extend = require('extend');
+const async = require('async');
+const extend = require('extend');
 
-var PoolLogger = require('./libs/logUtil.js');
-var PoolWorker = require('./libs/poolWorker.js');
-var PaymentProcessor = require('./libs/paymentProcessorEthereum.js');
-var PayoutProcessor = require('./libs/payoutProcessorEthereum.js');
-var Website = require('./libs/website.js');
-var MiningMonitor = require('./libs/miningMonitor.js');
-var MiningProxy = require('./libs/miningProxy.js');
-var TelegramBot = require('./libs/telegramBot.js');
+const PoolLogger = require('./libs/logUtil.js');
+const CliListener = require('./libs/cliListener.js');
+const PoolWorker = require('./libs/poolWorker.js');
+const PaymentProcessor = require('./libs/paymentProcessorEthereum.js');
+const PayoutProcessor = require('./libs/payoutProcessorEthereum.js');
+const Website = require('./libs/website.js');
+const ProfitSwitch = require('./libs/profitSwitch.js');
+const MiningMonitor = require('./libs/miningMonitor.js');
+const MiningProxy = require('./libs/miningProxy.js');
+const TelegramBot = require('./libs/telegramBot.js');
 
-var algos = require('stratum-pool/lib/algoProperties.js');
+const algos = require('stratum-pool/lib/algoProperties.js');
 
 JSON.minify = JSON.minify || require("node-json-minify");
 
@@ -27,10 +29,14 @@ if (!fs.existsSync('config.json')){
 var portalConfig = JSON.parse(JSON.minify(fs.readFileSync("config.json", {encoding: 'utf8'})));
 var poolConfigs;
 
+
 var logger = new PoolLogger({
     logLevel: portalConfig.logLevel,
     logColors: portalConfig.logColors
 });
+
+
+
 
 try {
     require('newrelic');
@@ -64,6 +70,7 @@ catch(e){
         logger.debug('POSIX', 'Connection Limit', '(Safe to ignore) POSIX module not installed and resource (connection) limit was not raised');
 }
 
+
 if (cluster.isWorker){
 
     switch(process.env.workerType){
@@ -85,6 +92,9 @@ if (cluster.isWorker){
         case 'website':
             new Website(logger);
             break;
+        case 'profitSwitch':
+            new ProfitSwitch(logger);
+            break;
         case 'telegramBot':
             new TelegramBot(logger);
             break;
@@ -93,12 +103,14 @@ if (cluster.isWorker){
     return;
 } 
 
+
 //Read all pool configs from pool_configs and join them with their coin profile
 var buildPoolConfigs = function(){
     var configs = {};
     var configDir = 'pool_configs/';
 
     var poolConfigFiles = [];
+
 
     /* Get filenames of pool config json files that are enabled */
     fs.readdirSync(configDir).forEach(function(file){
@@ -132,6 +144,7 @@ var buildPoolConfigs = function(){
 
         }
     }
+
 
     poolConfigFiles.forEach(function(poolOptions){
 
@@ -182,6 +195,8 @@ var buildPoolConfigs = function(){
     return configs;
 };
 
+
+
 var spawnPoolWorkers = function(){
 
     Object.keys(poolConfigs).forEach(function(coin){
@@ -197,6 +212,7 @@ var spawnPoolWorkers = function(){
         logger.warning('Master', 'PoolSpawner', 'No pool configs exists or are enabled in pool_configs folder. No pools spawned.');
         return;
     }
+
 
     var serializedConfigs = JSON.stringify(poolConfigs);
 
@@ -243,6 +259,13 @@ var spawnPoolWorkers = function(){
                         }
                     });
                     break;
+                case 'mineralert':
+                    Object.keys(cluster.workers).forEach(function(id) {
+                        if (cluster.workers[id].type === 'telegramBot'){
+                            cluster.workers[id].send(msg);
+                        }
+                    });
+                    break;
             }
         });
     };
@@ -258,6 +281,112 @@ var spawnPoolWorkers = function(){
     }, 250);
 
 };
+
+
+var startCliListener = function(){
+
+    var cliPort = portalConfig.cliPort;
+
+    var listener = new CliListener(cliPort);
+    listener.on('log', function(text){
+        logger.debug('Master', 'CLI', text);
+    }).on('command', function(command, params, options, reply){
+
+        switch(command){
+            case 'blocknotify':
+                Object.keys(cluster.workers).forEach(function(id) {
+                    cluster.workers[id].send({type: 'blocknotify', coin: params[0], hash: params[1]});
+                });
+                reply('Pool workers notified');
+                break;
+            case 'coinswitch':
+                processCoinSwitchCommand(params, options, reply);
+                break;
+            case 'reloadpool':
+                Object.keys(cluster.workers).forEach(function(id) {
+                    cluster.workers[id].send({type: 'reloadpool', coin: params[0] });
+                });
+                reply('reloaded pool ' + params[0]);
+                break;
+            default:
+                reply('unrecognized command "' + command + '"');
+                break;
+        }
+    }).start();
+};
+
+
+var processCoinSwitchCommand = function(params, options, reply){
+
+    var logSystem = 'CLI';
+    var logComponent = 'coinswitch';
+
+    var replyError = function(msg){
+        reply(msg);
+        logger.error(logSystem, logComponent, msg);
+    };
+
+    if (!params[0]) {
+        replyError('Coin name required');
+        return;
+    }
+
+    if (!params[1] && !options.algorithm){
+        replyError('If switch key is not provided then algorithm options must be specified');
+        return;
+    }
+    else if (params[1] && !portalConfig.switching[params[1]]){
+        replyError('Switch key not recognized: ' + params[1]);
+        return;
+    }
+    else if (options.algorithm && !Object.keys(portalConfig.switching).filter(function(s){
+        return portalConfig.switching[s].algorithm === options.algorithm;
+    })[0]){
+        replyError('No switching options contain the algorithm ' + options.algorithm);
+        return;
+    }
+
+    var messageCoin = params[0].toLowerCase();
+    var newCoin = Object.keys(poolConfigs).filter(function(p){
+        return p.toLowerCase() === messageCoin;
+    })[0];
+
+    if (!newCoin){
+        replyError('Switch message to coin that is not recognized: ' + messageCoin);
+        return;
+    }
+
+
+    var switchNames = [];
+
+    if (params[1]) {
+        switchNames.push(params[1]);
+    }
+    else{
+        for (var name in portalConfig.switching){
+            if (portalConfig.switching[name].enabled && portalConfig.switching[name].algorithm === options.algorithm)
+                switchNames.push(name);
+        }
+    }
+
+    switchNames.forEach(function(name){
+        if (poolConfigs[newCoin].coin.algorithm !== portalConfig.switching[name].algorithm){
+            replyError('Cannot switch a '
+                + portalConfig.switching[name].algorithm
+                + ' algo pool to coin ' + newCoin + ' with ' + poolConfigs[newCoin].coin.algorithm + ' algo');
+            return;
+        }
+
+        Object.keys(cluster.workers).forEach(function (id) {
+            cluster.workers[id].send({type: 'coinswitch', coin: newCoin, switchName: name });
+        });
+    });
+
+    reply('Switch message sent to pool workers');
+
+};
+
+
 
 var startPaymentProcessor = function(){
 
@@ -293,6 +422,7 @@ var startPaymentProcessor = function(){
     worker.send({cmd : 'Test'});
 };
 
+
 var startPayoutProcessor = function(){
 
     var enabledForAny = false;
@@ -325,6 +455,7 @@ var startPayoutProcessor = function(){
 
     });
 
+//    worker.send({cmd : 'Test'});
 };
 
 var startWebsite = function(){
@@ -359,6 +490,27 @@ var startWebsite = function(){
             });
         }
 
+    });
+};
+
+
+var startProfitSwitch = function(){
+
+    if (!portalConfig.profitSwitch || !portalConfig.profitSwitch.enabled){
+        //logger.error('Master', 'Profit', 'Profit auto switching disabled');
+        return;
+    }
+
+    var worker = cluster.fork({
+        workerType: 'profitSwitch',
+        pools: JSON.stringify(poolConfigs),
+        portalConfig: JSON.stringify(portalConfig)
+    });
+    worker.on('exit', function(code, signal){
+        logger.error('Master', 'Profit', 'Profit switching process died, spawning replacement...');
+        setTimeout(function(){
+            startWebsite(portalConfig, poolConfigs);
+        }, 2000);
     });
 };
 
@@ -403,7 +555,8 @@ var startMiningMonitor = function(){
     });
 };
 
-var startTelegramBot = function(){
+
+var startTelegramBot= function(){
 
     if( portalConfig.telegram.enabled != true) return;
 
@@ -462,6 +615,7 @@ var startMiningProxy = function(){
     startPaymentProcessor();
 
     startPayoutProcessor();
+
 
     startWebsite();
 

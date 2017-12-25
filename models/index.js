@@ -1,5 +1,5 @@
 JSON.minify = JSON.minify || require("node-json-minify");
-var fs          = require('fs')
+const fs = require('fs')
     , path      = require('path')
     , Sequelize = require('sequelize')
     , lodash    = require('lodash')
@@ -8,7 +8,7 @@ var fs          = require('fs')
         host: portalConfig.mysql.host,
         dialect: 'mysql',
         pool: {
-            max: 100,
+            max: portalConfig.mysql.max_conn ? portalConfig.mysql.max_conn : 100,
             min: 0,
             idle: 10000,
             acquire: 10000
@@ -22,7 +22,7 @@ fs.readdirSync(__dirname)
         return (file.indexOf('.') !== 0) && (file !== 'index.js')
     })
     .forEach(function(file) {
-        var model = sequelize.import(path.join(__dirname, file));
+        let model = sequelize.import(path.join(__dirname, file));
         db[model.name] = model
     });
 

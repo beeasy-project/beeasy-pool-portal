@@ -6,7 +6,12 @@ module.exports = function(sequelize, DataTypes) {
         name: {type: DataTypes.STRING, unique: 'uniqueIndex'},
         ip: {type: DataTypes.STRING(100), unique: 'uniqueIndex'},
         time: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0},
+        statTime: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0},
+        upTime: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0},
         curcoin: {type: DataTypes.STRING(100)},
+        status: {type: DataTypes.INTEGER(3), defaultValue:1},
+        is_dc: {type: DataTypes.INTEGER(3), defaultValue:0},
+        description: DataTypes.TEXT,
         warnT: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0},
         warnS: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0},
         warnH: {type: DataTypes.BIGINT, allowNull: false, defaultValue:0}

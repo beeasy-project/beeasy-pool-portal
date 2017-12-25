@@ -1,129 +1,208 @@
-              <style>
-                #topCharts{
-                    padding: 18px;
-                    height: 480px;
-                }
-                #topCharts > div > div > svg{
-                    display: block;
-                    height: 480px;
-                    width: 50%;
-                }
-                .chartWrapper{
-                    border: solid 1px #c7c7c7;
-                    border-radius: 5px;
-                    padding: 5px;
-                    margin-bottom: 18px;
-                }
-                .chartLabel{
-                    font-size: 1.2em;
-                    text-align: center;
-                    padding: 4px;
-                }
-                .chartHolder{
-                    height : 480px;
-                    display : block;
-                }
-                #walletsForm input{
-                    width : 500px;
-                }
-              </style>           
+<style>
+    #topCharts {
+        padding: 18px;
+        height: 480px;
+    }
 
-              <div class="col-md-12">
-                <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
-                  <div class="panel-heading">
-                    <h3 class="panel-title">Farms</h3>
-                  </div>
-                  <div class="panel-body" id="tblfarms">
-                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
-                      <thead>
-                        <tr>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Name</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">IP</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU Hashrate</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Temperature</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Fan</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Now mining</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Switch to</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="8">Management</th>
-                        </tr>
-                      </thead>
-                      <tbody id="farms">
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12">
-                <div class="panel panel-border panel-custom card-draggable ui-sortable-handle">
-                  <div class="panel-heading">
-                    <h3 class="panel-title">Graphs</h3>
-                  </div>
-                  <div class="panel-body topCharts">
-                    <div class="chartWrapper" id="poolHashrateCnt">
-                      <div class="chartLabel">Hashrate</div>
-                      <div class="chartHolder"><svg id="userHashrate"></svg></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12">
-                <div class="panel panel-border panel-pink card-draggable ui-sortable-handle">
-                  <div class="panel-heading">
-                    <h3 class="panel-title">Balance</h3>
-                  </div>
-                  <div class="panel-body">                
-                    <div id="balance">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12">
-                <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
-                  <div class="panel-heading">
-                    <h3 class="panel-title">Last transactions</h3>
-                  </div>
-                  <div class="panel-body" id="tbltrans">
-                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
-                      <thead>
-                        <tr>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Coin</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Tx</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Wallet</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">Amount</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Payoff amount</th>
-                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody id="lastpayoutsdata">
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12">
-                <div class="panel panel-border panel-warning card-draggable ui-sortable-handle">
-                  <div class="panel-heading">
-                    <h3 class="panel-title">Telegram</h3>
-                  </div>
-                  <div class="panel-body"> 
-                    <p class="header-title m-b-30" id="telegram"></p>
-                  </div>
-                </div>
-              </div>
+    #topCharts > div > div > svg {
+        display: block;
+        height: 480px;
+        width: 50%;
+    }
 
-              <script src="/static/user.js"></script>
-              <script>
-                $(document).ready(function(){
-                  $('#page-title').html('Dashboard');
-                  document.querySelector('body').appendChild(document.createElement('script')).src = '/static/userstats.js';
-                });
-              </script>
+    .chartWrapper {
+        border: solid 1px #c7c7c7;
+        border-radius: 5px;
+        padding: 5px;
+        margin-bottom: 18px;
+    }
+
+    .chartLabel {
+        font-size: 1.2em;
+        text-align: center;
+        padding: 4px;
+    }
+
+    .chartHolder {
+        height: 480px;
+        display: block;
+    }
+
+    #walletsForm input {
+        width: 500px;
+    }
+</style>
+
+<div class="col-md-12">
+    <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
+        <div class="panel-heading">
+            <h3 class="panel-title">Риги</h3>
+        </div>
+        <div class="panel-body" id="tblfarms">
+            <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                <thead>
+                <tr>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Название</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">IP</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Хешрейт, MH</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU хешрейт, MH</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Температура, &deg;C</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Кулер, %</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Сейчас майнится</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Аптайм/Даунтайм</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Переключиться на</th>
+                    <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="8">Управление</th>
+                </tr>
+                </thead>
+                <tbody id="farms">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-custom card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Графики</h3>
+            </div>
+            <div class="panel-body topCharts">
+                <div class="chartWrapper" id="poolHashrateCnt">
+                    <div class="chartLabel">Хешрейт</div>
+                    <div class="chartHolder">
+                        <svg id="userHashrate"></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-pink card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Баланс</h3>
+            </div>
+            <div class="panel-body">
+                <p class="text-muted font-17">
+                    Обращаем внимание, что, на данный момент, минимальная сумма для вывода составляет 0.2 ETH.
+                    <br/>Выплаты происходят автоматически по достижению примерно нужного баланса с запасом.
+                </p><br/>
+                <div class="table-responsive" id="tblbalance">
+                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                        <thead>
+                        <tr>
+                            <th scope="col">Монета</th>
+                            <th scope="col">Баланс</th>
+                            <th scope="col">Тек. доли</th>
+                            <th scope="col">Процент Ваших долей от общей выработки пула</th>
+                            <th scope="col">Тек. доли в валюте</th>
+                            <th scope="col">Итого баланс</th>
+                            <th scope="col">Выплачено</th>
+                            <th scope="col">Итого добыто</th>
+                        </tr>
+                        </thead>
+                        <tbody id="balancedata">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-purple card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Калькулятор</h3>
+            </div>
+            <div class="panel-body">
+                <div class="table-responsive" id="tblcalc">
+                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                        <thead>
+                        <tr>
+                            <th scope="col">Монета</th>
+                            <th scope="col">Хешрейт</th>
+                            <th scope="col">Час</th>
+                            <th scope="col">День</th>
+                            <th scope="col">Неделя</th>
+                            <th scope="col">Месяц</th>
+                        </tr>
+                        </thead>
+                        <tbody id="miningestimation">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-danger card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Комиссии</h3>
+            </div>
+            <div class="panel-body">
+                <div id="payoffs">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Последние выплаты</h3>
+            </div>
+            <div class="panel-body table-responsive" id="tbltrans">
+                <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                    <thead>
+                    <tr>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Монета</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Хеш транзакции</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Кошелек получателя</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col
+                            data-tablesaw-priority="1">Общая сумма
+                        </th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">На руки</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Комиссия</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Дата платежа</th>
+                    </tr>
+                    </thead>
+                    <tbody id="lastpayoutsdata">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-border panel-warning card-draggable ui-sortable-handle">
+            <div class="panel-heading">
+                <h3 class="panel-title">Telegram</h3>
+            </div>
+            <div class="panel-body">
+                <p class="text-muted font-17">
+                    Для подключения Telegram-бота напишите команду /start нашему боту
+                    {{=it.portalConfig.telegram.botname}}, а затем авторизуйтесь, используя зарегистрированные на нашем
+                    сайте логин и пароль.
+                    <br/>Через Telegram-бота вы будете получать оповещения о состоянии ваших риг. Также бот используется
+                    для двухфакторной авторизации и при восстановлении паролей.
+                </p><br/>
+                <p class="header-title m-b-30" id="telegram"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/user.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#page-title').html('Сводка');
+            document.querySelector('body').appendChild(document.createElement('script')).src = '/static/userstats.js';
+        });
+    </script>
+</div>

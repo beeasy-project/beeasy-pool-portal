@@ -1,25 +1,45 @@
 ﻿              <div class="col-sm-12">
-                <div class="card-box">                  
-                  <div id="balance">
+                <div class="card-box">
+                  <p class="text-muted font-17">
+                    Обращаем внимание, что на данный момент минимальная сумма для вывода составляет 0,2 ETH.
+                    <br/>Выплаты происходят автоматически по достижению примерно нужного баланса с запасом.
+                  </p><br/>
+                  <div class="table-responsive" id="tblbalance">
+                    <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                      <thead>
+                      <tr>
+                        <th scope="col">Монета</th>
+                        <th scope="col">Баланс</th>
+                        <th scope="col">Тек. доли</th>
+                        <th scope="col">Процент Ваших долей от общей выработки пула</th>
+                        <th scope="col">Тек. доли в валюте</th>
+                        <th scope="col">Итого баланс</th>
+                        <th scope="col">Выплачено</th>
+                        <th scope="col">Итого добыто</th>
+                      </tr>
+                      </thead>
+                      <tbody id="balancedata">
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
             </div>
             <div class="row">
               <div class="col-md-12">
-                <div class="card-box" id="tbltrans">
-                  <div class="dropdown pull-right" id="coinselectorwrapper">
-                  </div>
-                  <h3 class="header-title m-t-0 m-b-20 text-success">Payouts for</h3>
+                <div class="card-box table-responsive" id="tbltrans">
+                  <div class="dropdown pull-right" id="coinselectorwrapper"></div>
+                  <h3 class="header-title m-t-0 m-b-20 text-success">Выплаты</h3>
                   <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
                     <thead>
                       <tr>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Coin</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Tx</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Wallet</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">Amount</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Payoff amount</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Time</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Монета</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Хеш транзакции</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">Кошелек получателя</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-sortable-default-col data-tablesaw-priority="1">Общая сумма</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">На руки</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Комиссия</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Дата платежа</th>
                       </tr>
                     </thead>
                     <tbody id="payoutsdata">
@@ -30,7 +50,7 @@
               <script src="/static/user.js"></script>
               <script>
                 $(document).ready(function(){
-                  $('#page-title').html('Balance');
+                  $('#page-title').html('Баланс');
                     document.querySelector('body').appendChild(document.createElement('script')).src = '/static/ubalance.js';
                 });
               </script>

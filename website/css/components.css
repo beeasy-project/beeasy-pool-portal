@@ -1092,7 +1092,9 @@ File: Components
 .table {
   margin-bottom: 10px;
 }
-.table-striped > tbody > tr:nth-of-type(odd),
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: #e8f6ff !important;
+}
 .table-hover > tbody > tr:hover,
 .table > thead > tr > td.active,
 .table > tbody > tr > td.active,
@@ -1108,6 +1110,7 @@ File: Components
 .table > tfoot > tr.active > th {
   background-color: #f4f8fb !important;
 }
+
 .table > thead > tr > th,
 .table > tbody > tr > th,
 .table > tfoot > tr > th,
@@ -1120,11 +1123,15 @@ File: Components
 }
 .table-bordered > thead > tr > th,
 .table-bordered > tbody > tr > th,
-.table-bordered > tfoot > tr > th,
+.table-bordered > tfoot > tr > th{
+  border: 1px solid #ebeff2;
+}
 .table-bordered > thead > tr > td,
 .table-bordered > tbody > tr > td,
 .table-bordered > tfoot > tr > td {
-  border: 1px solid #ebeff2;
+  border-right: 1px solid #ebeff2;
+  border-left: 1px solid #ebeff2;
+  border-bottom: 1px solid #999 !important;
 }
 .table > thead > tr > th {
   vertical-align: bottom;
@@ -1421,4 +1428,47 @@ table.dataTable td.focus {
   position: absolute;
   right: 7px;
   top: 2px;
+}
+
+/*Sort tables*/
+table thead .sorting,
+table thead .sorting_asc,
+table thead .sorting_desc,
+table thead .sorting_asc_disabled,
+table thead .sorting_desc_disabled {
+  cursor: pointer;
+  position: relative;
+}
+
+table thead .sorting:after,
+table thead .sorting_asc:after,
+table thead .sorting_desc:after {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: block;
+  font-family: 'Glyphicons Halflings';
+  opacity: 0.5;
+}
+table thead .sorting:after {
+  opacity: 0.2;
+  content: "\e150"; /* sort */
+}
+table thead .sorting_asc:after {
+  content: "\e155"; /* sort-by-attributes */
+}
+table thead .sorting_desc:after {
+  content: "\e156"; /* sort-by-attributes-alt */
+}
+
+table thead .sorting_asc_disabled:after,
+table thead .sorting_desc_disabled:after {
+  color: #eee;
+}
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -o-text-overflow: ellipsis;
 }

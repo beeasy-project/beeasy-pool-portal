@@ -1,0 +1,45 @@
+              <div class="col-sm-12">
+                <div class="card-box">
+                    <div id="filter">
+                        <form id="filterForm" class="form-inline m-t-30" role="form">
+                            <div class="row">
+                                <div class="form-group col-sm-3 m-b-20">
+                                    <label for="username" class="m-r-10">Username</label>
+                                    <input type="text" class="form-control m-r-10" id="username" name="username" value="" />
+                                </div>
+                                <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="searchButton">Search</button>
+                                <button type="reset" class="btn btn-cancel btn-bordred waves-effect waves-light w-md m-l-10" id="resetButton">Reset</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="card-box table-responsive" id="tblpayments">
+                  <table class="tablesaw m-t-0 table m-b-20 table-striped" data-tablesaw-mode="stack">
+                    <thead>
+                      <tr>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">User</th>
+                          <th scope="col" data-tablesaw-sortable-col>Монета</th>
+                          <th scope="col" data-tablesaw-sortable-col>Хеш транзакции</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">Кошелек получателя</th>
+                          <th scope="col" data-tablesaw-sortable-col>Общая сумма</th>
+                          <th scope="col" data-tablesaw-sortable-col>На руки</th>
+                          <th scope="col" data-tablesaw-sortable-col>Комиссия</th>
+                          <th scope="col" data-tablesaw-sortable-col>Дата платежа</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payments">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <script src="/static/payments.js"></script>
+              <script>
+                $(document).ready(function(){
+                  $('#page-title').html('Payments');
+                });
+              </script>
+

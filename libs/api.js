@@ -1,16 +1,16 @@
-var redis = require('redis');
-var async = require('async');
+const redis = require('redis');
+const async = require('async');
 
-var stats = require('./stats.js');
-var payouts = require('./payouts.js');
+const stats = require('./stats.js');
+const payouts = require('./payouts.js');
 
-var crypto = require('crypto');
+const crypto = require('crypto');
 const userService = require('./userService.js');
 const admService = require('./admService.js');
 const tools = require('./addtools.js');
 const apisys = require('./apiSys.js');
 
-var mail = require('./mailSender.js');
+const mail = require('./mailSender.js');
 
 module.exports = function(logger, portalConfig, poolConfigs){
 
@@ -107,11 +107,14 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 return;
             }
             case 'live': {
+                let farmlabel = req.body.farmlabel || '';
+                let isworking = req.body.isworking || 0;
+                let isdc = req.body.isdc || 0;
                 aService.getCurrentUser(req, function (err, response) {
                     if (err) res.send(403, JSON.stringify({error: 'Forbidden'}));
                     else {
-                        portalStats.getLiveStats(function (err, results) {
-                            res.end( JSON.stringify({result : results }));
+                        portalStats.getLiveStats(farmlabel, isworking, isdc, function (err, results, addresult, counts) {
+                            res.end( JSON.stringify({result : results, addresult: addresult, counts: counts}));
                         });
                     }
                 });
@@ -140,12 +143,28 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 });
                 return;
             }
-            case 'user': {
-                var username = req.body.username;
+            case 'editfarm': {
+                let label = req.body.label;
+                let description = req.body.description;
                 aService.getCurrentUser(req, function (err, response) {
                     if (err) res.send(403, JSON.stringify({error: 'Forbidden'}));
                     else {
-                        portalStats.getUsers(username, function (err, results) {
+                        portalStats.setFarm(label, description, function (err, results) {
+                            res.end(JSON.stringify(results));
+                        });
+                    }
+                });
+                return;
+            }
+            case 'user': {
+                let username = req.body.username;
+                let page = req.body.page || 1;
+                let sort = req.body.sort || 'name';
+                let order = req.body.order || 'asc';
+                aService.getCurrentUser(req, function (err, response) {
+                    if (err) res.send(403, JSON.stringify({error: 'Forbidden'}));
+                    else {
+                        portalStats.getUsers(username, page, sort, order, function (err, results) {
                             res.end(JSON.stringify(results));
                         });
                     }
@@ -181,8 +200,9 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 return;
             }
             case 'command': {
-                var command = req.body.command;
-                var names = tools.parseName(req.body.farm);
+                let command = req.body.command;
+                let names = tools.parseName(req.body.farm);
+                let farmIp = req.body.ip;
                 if (!command){
                     res.end(JSON.stringify({error:"No command specified"}));
                     return;
@@ -215,6 +235,18 @@ module.exports = function(logger, portalConfig, poolConfigs){
                                 });
                                 return;
                             }
+                            case 'delete': {
+                                portalStats.deleteFarm(names[0], names[1], farmIp, function (results) {
+                                    res.end(JSON.stringify(results));
+                                });
+                                return;
+                            }
+                            case 'disableAlert': {
+                                portalStats.disableAlert(names[0], names[1], function (results) {
+                                    res.end(JSON.stringify(results));
+                                });
+                                return;
+                            }
                             default:
                                 res.end(JSON.stringify("Bad command"));
                         }
@@ -226,10 +258,12 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 if (portalConfig.website
                     && portalConfig.website.adminCenter
                     && portalConfig.website.adminCenter.enabled){
+                    var username = req.body.username;
+                    var isenougth = req.body.isenougth;
                     aService.getCurrentUser(req, function (err, response) {
                         if (err) res.send(403, JSON.stringify({error: 'Forbidden'}));
                         else {
-                            portalPayouts.getPendingPayouts("ethereum", function (response) {
+                            portalPayouts.getPendingPayouts("ethereum", username, isenougth, function (response) {
                                 res.end(JSON.stringify(response));
                             });
                         }
@@ -248,6 +282,24 @@ module.exports = function(logger, portalConfig, poolConfigs){
                             var transaction = req.body.transaction;
                             var coin = req.body.coin;
                             portalPayouts.sendPayment(coin, transaction, function (response) {
+                                res.end(JSON.stringify(response));
+                            });
+                        }
+                    });
+                } else
+                    res.send(403, JSON.stringify({error: 'Forbidden'}));
+                return;
+            }
+            case 'payments': {
+                if (portalConfig.website
+                    && portalConfig.website.adminCenter
+                    && portalConfig.website.adminCenter.enabled){
+                    let username = req.body.username;
+                    let coin = req.body.coin || '';
+                    aService.getCurrentUser(req, function (err, response) {
+                        if (err) res.send(403, JSON.stringify({error: 'Forbidden'}));
+                        else {
+                            portalPayouts.getPayments(username, coin, function (response) {
                                 res.end(JSON.stringify(response));
                             });
                         }
@@ -277,17 +329,19 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 return;
             }
             case 'farmstop': {
-                var username = req.body.username;
-                var worker = req.body.farmName;
+                let username = req.body.username;
+                let worker = req.body.farmName;
                 portalStats.addSysMessage(username, worker, tools.wrapMessage('stop'), function(result) {
+                    portalStats.stopFarm(username, worker, function(result) {});
                     res.end(JSON.stringify(result));
                 });
                 return;
             }
             case 'farmstart': {
-                var username = req.body.username;
-                var worker = req.body.farmName;
+                let username = req.body.username;
+                let worker = req.body.farmName;
                 portalStats.addSysMessage(username, worker, tools.wrapMessage('start'), function(result) {
+                    portalStats.startFarm(username, worker, function(result) {});
                     res.end(JSON.stringify(result));
                 });
                 return;
@@ -328,11 +382,42 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 return;
             }
             case 'minerreg': {
-                var client = req.body.client;
-                var coin = req.body.coin;
-                var clienthash = req.body.clienthash;
+                let client = req.body.client;
+                let coin = req.body.coin;
+                let clienthash = req.body.clienthash;
                 portalStats.regWorkerLiveStats(coin, client, clienthash, function(result) {
                     res.end(JSON.stringify(result));
+                });
+                return;
+            }
+            case 'farm': {
+                let farmName = req.body.farmName || '';
+                let login = req.body.login;
+                let password = req.body.password;
+                _this.stats.getUserFarms(login, password, farmName, function (response) {
+                    res.end(JSON.stringify(response));
+                });
+                return;
+            }
+            case 'getuserbalance': {
+                let login = req.body.login;
+                let password = req.body.password;
+                _this.stats.getUserBalance(login, password, function (response) {
+                    res.end(JSON.stringify(response));
+                });
+                return;
+            }
+            case 'lastpayouts': {
+                let login = req.body.login;
+                let password = req.body.password;
+                _this.stats.getUserLastPayouts(login, password, function (response) {
+                    res.end(JSON.stringify(response));
+                });
+                return;
+            }
+            case 'telegramuserlist': {
+                _this.stats.getTelegramUsers(function (err, response) {
+                    res.end(JSON.stringify(response));
                 });
                 return;
             }
@@ -371,6 +456,21 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 });
                 return;
             }
+            case 'recover': {
+                let login = req.body.login;
+                uService.recoverUser(login, res, this.stats, function (response) {
+                    res.end(JSON.stringify(response));
+                });
+                return;
+            }
+            case 'reset': {
+                let password = req.body.password;
+                let reccode = req.body.reccode;
+                uService.resetPassword(reccode, password, res, this.stats, function (response) {
+                    res.end(JSON.stringify(response));
+                });
+                return;
+            }
             case 'login': {
                 var login = req.body.login;
                 var password = req.body.password;
@@ -405,8 +505,8 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
             case 'getuserbalance': {
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
-                    var password = response.data.password || tools.hidePwd(req.body.password);
+                    let login = response.name || req.body.login;
+                    let password = response.data.password || tools.hidePwd(req.body.password);
                     _this.stats.getUserBalance(login, password, function (response) {
                         res.end(JSON.stringify(response));
                     });
@@ -436,10 +536,10 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 return;
             }
             case 'addtelegram': {
-                var telegram = req.body.telegram;
+                let telegram = req.body.telegram;
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
-                    var password = response.data.password || tools.hidePwd(req.body.password);
+                    let login = response.name || req.body.login;
+                    let password = response.data.password || tools.hidePwd(req.body.password);
                     _this.stats.addTelegram(login, password, telegram, function (response) {
                         res.end(JSON.stringify(response));
                     });
@@ -448,7 +548,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
             case 'livestats': {
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
+                    let login = response.name || req.body.login;
                     _this.stats.getUserLiveStats(login, function (response) {
                         res.end(JSON.stringify(response));
                     });
@@ -458,7 +558,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
 
             case 'historystats': {
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
+                    let login = response.name || req.body.login;
                     _this.stats.getUserHistoryStats(login, function (response) {
                         res.end(JSON.stringify(response));
                     });
@@ -467,7 +567,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
 
             case 'liveconnect': {
-                var connectionhash = req.body.connectionhash;
+                let connectionhash = req.body.connectionhash;
                 uService.getCurrentUser(req, function (err, response) {
                     _this.stats.getConnectionLiveStats(connectionhash, function (response) {
                         res.end(JSON.stringify(response));
@@ -478,10 +578,10 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
 
             case 'farm': {
-                var farmName = req.body.farmName || '';
+                let farmName = req.body.farmName || '';
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
-                    var password = response.data.password || tools.hidePwd(req.body.password);
+                    let login = response.name || req.body.login;
+                    let password = response.data.password || tools.hidePwd(req.body.password);
                     _this.stats.getUserFarms(login, password, farmName, function (response) {
                         res.end(JSON.stringify(response));
                     });
@@ -490,7 +590,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
 
             case 'payouts': {
-                var coin = req.body.coin;
+                let coin = req.body.coin;
                 if (!coin){
                     res.end(JSON.stringify({error:"No coin specified",dataArray:null}));
                     return;
@@ -523,15 +623,16 @@ module.exports = function(logger, portalConfig, poolConfigs){
             }
 
             case 'command': {
-                var command = req.body.command;
-                var names = tools.parseName(req.body.farm);
+                let command = req.body.command;
+                let names = tools.parseName(req.body.farm);
+                let farmIp = req.body.ip;
                 if (!command){
                     res.end(JSON.stringify({error:"No command specified"}));
                     return;
                 }
                 uService.getCurrentUser(req, function (err, response) {
-                    var login = response.name || req.body.login;
-                    var password = response.data.password || tools.hidePwd(req.body.password);
+                    let login = response.name || req.body.login;
+                    let password = response.data.password || tools.hidePwd(req.body.password);
                     _this.stats.checkBaseCommandAccess(login, password, names, function (isHaveAccess) {
                         if (isHaveAccess)
                             switch(command){
@@ -555,6 +656,12 @@ module.exports = function(logger, portalConfig, poolConfigs){
                                 }
                                 case 'reboot': {
                                     sysApi.reboot(login, names[1], function (err, results) {
+                                        res.end(JSON.stringify(results));
+                                    });
+                                    return;
+                                }
+                                case 'delete': {
+                                    portalStats.deleteFarm(names[0], names[1], farmIp, function (results) {
                                         res.end(JSON.stringify(results));
                                     });
                                     return;
@@ -583,9 +690,20 @@ module.exports = function(logger, portalConfig, poolConfigs){
 
             case 'lastpayouts': {
                 uService.getCurrentUser(req, function (err, response) {
+                    let login = response.name || req.body.login;
+                    let password = response.data.password || tools.hidePwd(req.body.password);
+                    _this.stats.getUserLastPayouts(login, password, function (response) {
+                        res.end(JSON.stringify(response));
+                    });
+                });
+                return;
+            }
+
+            case 'commissions': {
+                uService.getCurrentUser(req, function (err, response) {
                     var login = response.name || req.body.login;
                     var password = response.data.password || tools.hidePwd(req.body.password);
-                    _this.stats.getUserLastPayouts(login, password, function (response) {
+                    _this.stats.getUserCommissions(login, password, 'ethereum', function (response) {
                         res.end(JSON.stringify(response));
                     });
                 });

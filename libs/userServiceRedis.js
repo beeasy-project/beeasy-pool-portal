@@ -54,7 +54,6 @@ module.exports = function() {
         },
         deleteSession: function (sGuid) {
             redisClient.hdel("users:sessions", tools.hidePwd(sGuid));
-            return
         },
         restoreSession: function (sGuid, serviceCallback) {
             redisClient.hget("users:sessions", tools.hidePwd(sGuid), function (err, result) {
@@ -68,6 +67,24 @@ module.exports = function() {
             stats.registerUser(login, password, refcode, function( response ){
                 if (response.result) {
                     _this.createSession(login, function (err, result) {
+                        if (err) serviceCallback({result: null, error: err});
+                        _this.setCookie(res, COOKIENAME, result, MAXAGENOREMEMBER);
+                        serviceCallback(response);
+                    });
+                } else {
+                    serviceCallback(response);
+                }
+            });
+        },
+        recoverUser: function (login, res, stats, serviceCallback) {
+            stats.recoverUser(login, function( response ){
+                serviceCallback(response);
+            });
+        },
+        resetPassword: function (reccode, password, res, stats, serviceCallback) {
+            stats.resetPassword(reccode, password, function( response ){
+                if (response.result) {
+                    _this.createSession(response.user_id, function (err, result) {
                         if (err) serviceCallback({result: null, error: err});
                         _this.setCookie(res, COOKIENAME, result, MAXAGENOREMEMBER);
                         serviceCallback(response);

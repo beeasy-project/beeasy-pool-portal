@@ -75,7 +75,8 @@ function getReadableHashRateString(hashrate){
         hashrate = hashrate / 1024;
         i++;
     } while (hashrate > 1024);
-    return Math.round(hashrate) + byteUnits[i];
+    hashrate = Math.round(hashrate * 100) / 100;
+    return hashrate + byteUnits[i];
 }
 
 function timeOfDayFormat(timestamp){
@@ -151,7 +152,7 @@ $.getJSON('/api/pool_stats', function(data){
     buildChartData();
     displayCharts();
 });
-
+if ("EventSource" in window)
 statsSource.addEventListener('message', function(e){
     var stats = JSON.parse(e.data);
     statData.push(stats);

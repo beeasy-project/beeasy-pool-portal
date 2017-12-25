@@ -1,0 +1,45 @@
+                <div class="col-sm-12">
+                <div class="card-box table-responsive" id="tblfarm">
+                  <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                    <thead>
+                      <tr>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Name</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">IP</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU Hashrate</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Temperature</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Fan</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Now mining</th>
+                          <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">UpTime/DownTime</th>
+                      </tr>
+                    </thead>
+                    <tbody id="farm">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            {{? it.farm }}
+              <div class="col-sm-12">
+                  <div class="card-box">
+                      <div id="payoffs">
+                          <form id="commentForm" class="m-t-30" role="form">
+                              <div class="form-group">
+                                  <label for="comment" class="col-md-2 control-label">Комментарий</label>
+                                  <div class="col-md-10">
+                                      <textarea class="form-control" id="comment" name="comment" rows="5"></textarea>
+                                  </div>
+                              </div>
+                              <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="addComment">Сохранить</button>
+                          </form>
+                      </div>
+                      <div class="clearfix"></div>
+                  </div>
+              </div>
+            {{?}}
+
+              <script>
+                let farm = {{=JSON.stringify(it.farm)}};
+                $(document).ready(function(){
+                  document.querySelector('body').appendChild(document.createElement('script')).src = '/static/admfarm.js';
+                });
+              </script>

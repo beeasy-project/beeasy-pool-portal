@@ -89,7 +89,7 @@
                   <p>Начните майнинг одной кнопкой!</p>
                 </div>
                 <div class="p-area">
-                  <a href="/auth" class="btn">Зарегистрироваться</a>
+                  <a href="/auth#register" class="btn">Зарегистрироваться</a>
                   <a href="/miners" class="btn">Скачать приложение</a>
                 </div>
               </div>
@@ -347,14 +347,16 @@
     <script>
         $(document).ready(function(){
             document.querySelector('body').appendChild(document.createElement('script')).src = '/static/message.js';
-            window.statsSource = new EventSource("/api/live_stats");
-            statsSource.addEventListener('message', function (e) {
-                var stats = JSON.parse(e.data);
-                $('#counterhours').text(stats.global.hours);
-                $('#counterworkers').text(stats.global.workers);
-                $('#counterpouts').text(stats.global.payouts);
-                var hrateStr = '<span class="counterspan">'+stats.global.hashrateString.substr(0, stats.global.hashrateString.indexOf(' '))+'</span>'+stats.global.hashrateString.substr(stats.global.hashrateString.indexOf(' '), stats.global.hashrateString.length);
-                $('#counterhrates').html(hrateStr);
-            });
+            if ("EventSource" in window) {
+                window.statsSource = new EventSource("/api/live_stats");
+                statsSource.addEventListener('message', function (e) {
+                    var stats = JSON.parse(e.data);
+                    $('#counterhours').text(stats.global.hours);
+                    $('#counterworkers').text(stats.global.workers);
+                    $('#counterpouts').text(stats.global.payouts);
+                    var hrateStr = '<span class="counterspan">' + stats.global.hashrateString.substr(0, stats.global.hashrateString.indexOf(' ')) + '</span>' + stats.global.hashrateString.substr(stats.global.hashrateString.indexOf(' '), stats.global.hashrateString.length);
+                    $('#counterhrates').html(hrateStr);
+                });
+            }
         });
     </script>

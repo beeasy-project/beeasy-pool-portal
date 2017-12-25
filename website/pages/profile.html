@@ -11,7 +11,7 @@
                         </button>                         
                       </div>
                       <div class="m-t-20">
-                        Referral link: <input type="text" class="form-control" id="reflink" value=""/>
+                        Реферальная ссылка: <input type="text" class="form-control" id="reflink" value=""/>
                       </div>
                     </div>
                     <div class="clearfix"></div>
@@ -23,19 +23,20 @@
               <div class="col-md-8">
                 <div class="panel panel-border panel-success card-draggable ui-sortable-handle">
                   <div class="panel-heading">
-                    <h3 class="panel-title">Settings</h3>
+                    <h3 class="panel-title">Настройки</h3>
                   </div>
                   <div class="panel-body">
                     <form method="post" class="form-inline">
-                      <div class="form-group col-sm-3 m-r-10">
-                        <label for="tfauth" class="m-r-10">Two-factor auth</label>
+                      <div class="form-group col-sm-4 m-r-10">
+                        <label for="tfauth" class="m-r-10">Двухфакторная авторизация</label>
                         <input type="checkbox" id="tfauth" value="1" data-plugin="switchery" data-switchery="true" data-color="#10c469" />
+                        <span class="help-block"><small>Через Телеграм</small></span>
                       </div>
                       <div class="form-group col-sm-2 m-r-10" id="settingsconfwrapper" style="display:none;">
-                        <label class="sr-only" for="settingsconf">Confirmation code</label>
+                        <label class="sr-only" for="settingsconf">Код подтверждения</label>
                         <input type="text" class="form-control" value="new" id="settingsconf" placeholder="Confirmation code" />
                       </div>
-                      <button type="button" class="btn btn-success waves-effect w-md waves-light m-b-5" onclick="trySaveSettings()">Save</button>     
+                      <button type="button" class="btn btn-success waves-effect w-md waves-light m-b-5" onclick="trySaveSettings()">Сохранить</button>
                     </form>
                     <div class="clearfix"></div>
                   </div>
@@ -46,6 +47,6 @@
               <script src="/static/user.js"></script>
               <script>
                 $(document).ready(function(){
-                  $('#page-title').html('Profile');
+                  $('#page-title').html('Профиль');
                 });
               </script>

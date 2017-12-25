@@ -26,17 +26,41 @@
 </style>
               <div class="col-sm-12">
                 <div class="card-box" id="tbllive">
-                  <table class="tablesaw m-t-0 table m-b-20" data-tablesaw-mode="stack">
+                    <div id="filter">
+                        <form id="filterForm" class="form-inline m-t-30" role="form">
+                            <div class="row">
+                                <div class="form-group col-sm-3 m-b-20">
+                                    <label for="farmlabel" class="m-r-10">Name</label>
+                                    <input type="text" class="form-control m-r-10" id="farmlabel" name="farmlabel" value="" />
+                                </div>
+                                <div class="form-group col-sm-3 m-r-10">
+                                    <label for="isworking" class="m-r-10">Только работающие</label>
+                                    <input type="checkbox" id="isworking" value="1" data-plugin="switchery" data-switchery="true" data-color="#10c469" checked/>
+                                </div>
+                                <div class="form-group col-sm-3 m-r-10">
+                                    <label for="isdc" class="m-r-10">Только ДЦ</label>
+                                    <input type="checkbox" id="isdc" value="1" data-plugin="switchery" data-switchery="true" data-color="#10c469" checked/>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-bordred waves-effect waves-light w-md m-l-10" id="searchButton">Search</button>
+                                <button type="reset" class="btn btn-cancel btn-bordred waves-effect waves-light w-md m-l-10" id="resetButton">Reset</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="dataTables_info" id="farmcounts_info" style="padding-top: 5px;padding-bottom: 10px"></div>
+                  <table class="tablesaw m-t-0 table m-b-20 table-bordered" data-tablesaw-mode="stack">
                     <thead>
                       <tr>
                         <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="persist">Name</th>
                         <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="1">IP</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU Hashrate</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Temperature</th>
-                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Fan</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="2">Hashrate, MH</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="3">GPU Hashrate, MH</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="4">Temperature, &deg;C</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="5">Fan, %</th>
                         <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">Now mining</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="6">UpTime/DownTime</th>
                         <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Management</th>
+                        <th scope="col" data-tablesaw-sortable-col data-tablesaw-priority="7">Link</th>
                       </tr>
                     </thead>
                     <tbody id="live">
@@ -44,9 +68,8 @@
                   </table>
                 </div>
               </div>
-              <div class="col-sm-12">
+              <div class="col-sm-12" id="charts">
                   <div class="card-box">
-                      <p id="farmselectorwrapper" class="text-muted font-13"></p>
                       <div class="topCharts">
                           <div class="chartWrapper" id="poolHashrateCnt">
                               <div class="chartLabel">Hashrate</div>
@@ -68,6 +91,8 @@
                   </div>
               </div>
 
+              <link rel="stylesheet" href="/css/switchery.min.css" />
+              <script src="/js/switchery.min.js"></script>
               <script src="/static/admin.js"></script>
               <script>
                 $(document).ready(function(){

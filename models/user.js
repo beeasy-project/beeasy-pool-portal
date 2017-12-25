@@ -20,6 +20,9 @@ module.exports = function(sequelize, DataTypes) {
         User.hasMany(models.Umessages, {foreignKey: 'user_id',as: 'Messages'});
         User.hasMany(models.Payments, {foreignKey: 'user', sourceKey: 'name', as: 'Payments'});
         User.hasMany(models.Upayoffs, {foreignKey: 'user_id',as: 'Payoffs'});
+        User.hasMany(models.Sharebalance, {foreignKey: 'user', sourceKey: 'name', as: 'Shares'});
+        User.hasMany(models.Sharehist, {foreignKey: 'user', sourceKey: 'name', as: 'Sharehist'});
+        User.hasMany(models.Accrualshist, {foreignKey: 'user', sourceKey: 'name', as: 'Accruals'});
     };
 
     return User;

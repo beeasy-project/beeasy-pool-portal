@@ -16,7 +16,7 @@ module.exports = function(logger, portalConfig, poolConfigs){
         });
     }
 
-    this.getPendingPayouts= function(coin, callback){
+    this.getPendingPayouts = function(coin, username, isenougth, callback){
 
         redisStats.hgetall(coin + ":payments:pending",  function( err, result ){
             if (err) {
@@ -54,6 +54,10 @@ module.exports = function(logger, portalConfig, poolConfigs){
                 callback({error: null, result: res});
             });
         });
+    };
+
+    this.getPayments = function(username, coin, callback){
+        return callback({error:null,dataArray:[]});
     };
 
     this.sendPayment= function(coin, transaction, callback ){

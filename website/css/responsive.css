@@ -181,3 +181,19 @@ File: Responsive
     max-width: 180px;
   }
 }
+@media (max-width: 69.9375em) {
+  .tablesaw-stack tbody tr:last-of-type > td:last-of-type {
+    border-bottom: none !important;
+  }
+  .tablesaw-stack tbody tr > td:last-of-type {
+    border-bottom: 1px solid #999 !important;
+  }
+  .tablesaw-stack > thead > tr > td,
+  .tablesaw-stack > tbody > tr > td,
+  .tablesaw-stack > tfoot > tr > td {
+    border-top: none !important;
+    border-right: none;
+    border-left: none;
+    border-bottom: none !important;
+  }
+}

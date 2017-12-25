@@ -1,28 +1,30 @@
-var redis = require('redis');
-var minerapi = require('./apiClaymore.js');
-var tools = require('./addtools.js');
-var request = require('request');
-var nonce   = require('nonce');
-var crypto = require('crypto');
+let redis = require('redis');
+let minerapi = require('./apiClaymore.js');
+let tools = require('./addtools.js');
+let request = require('request');
+let nonce   = require('nonce');
+let crypto = require('crypto');
+let api = require('./api.js');
 
 module.exports = function(logger ){
-    var poolConfigs = JSON.parse(process.env.pools);
-    var portalConfig = JSON.parse(process.env.portalConfig);
+    let poolConfigs = JSON.parse(process.env.pools);
+    let portalConfig = JSON.parse(process.env.portalConfig);
 
-    var redisConfig = portalConfig.redis;
+    let redisConfig = portalConfig.redis;
 
-    var forkId = process.env.forkId;
-    var logSystem = 'Monitor';
-    var logComponent = 'local';
-    var logSubCat = 'Thread ' + (parseInt(forkId) + 1);
+    let forkId = process.env.forkId;
+    let logSystem = 'Monitor';
+    let logComponent = 'local';
+    let logSubCat = 'Thread ' + (parseInt(forkId) + 1);
 
-    var redisClient = redis.createClient(redisConfig.port, redisConfig.host);
+    let redisClient = redis.createClient(redisConfig.port, redisConfig.host);
 
-    var miners = [];
-    var PRIVATE_API_URL = portalConfig.monitoring.proxiedProtocol+'://'+portalConfig.monitoring.proxiedHost+'/api/sys',
+    let miners = {};
+    let PRIVATE_API_URL = portalConfig.monitoring.proxiedProtocol+'://'+portalConfig.monitoring.proxiedHost+'/api/sys',
         PUBLIC_API_URL = portalConfig.monitoring.proxiedProtocol+'://'+portalConfig.monitoring.proxiedHost+'/api/user',
         USER_AGENT      = 'nomp/node-open-mining-portal';
-    var STRICT_SSL = false;
+    let STRICT_SSL = false;
+    let portalStats = new api(logger, portalConfig, poolConfigs).stats;
 
     redisClient.on('ready', function(){
         logger.debug(logSystem, logComponent, logSubCat, 'Proxy processing setup with redis (' + redisConfig.host +
@@ -40,12 +42,12 @@ module.exports = function(logger ){
             logger.error(logSystem, logComponent, logSubCat, 'Redis version check failed');
             return;
         }
-        var parts = response.split('\r\n');
-        var version;
-        var versionString;
-        for (var i = 0; i < parts.length; i++){
+        let parts = response.split('\r\n');
+        let version;
+        let versionString;
+        for (let i = 0; i < parts.length; i++){
             if (parts[i].indexOf(':') !== -1){
-                var valParts = parts[i].split(':');
+                let valParts = parts[i].split(':');
                 if (valParts[0] === 'redis_version'){
                     versionString = valParts[1];
                     version = parseFloat(versionString);
@@ -61,7 +63,7 @@ module.exports = function(logger ){
         }
     });
 
-    var monitoringInterval = setInterval(function(){
+    let monitoringInterval = setInterval(function(){
         try {
             processCommandMonitoring();
         } catch(e){
@@ -69,7 +71,7 @@ module.exports = function(logger ){
         }
     }, 10*1000);
 
-    var receiveInterval = setInterval(function(){
+    let receiveInterval = setInterval(function(){
         try {
             processReceiveCommand();
         } catch(e){
@@ -77,37 +79,39 @@ module.exports = function(logger ){
         }
     }, 15*1000);
 
-    var processCommandMonitoring = function()
+    let processCommandMonitoring = function()
     {
         Object.keys(poolConfigs).forEach(function(coin) {
 
-            var poolOptions = poolConfigs[coin];
+            let poolOptions = poolConfigs[coin];
 
-            var curcoin = poolOptions.coin.name;
+            let curcoin = poolOptions.coin.name;
 
             redisClient.hgetall(curcoin + ":liveStat", function (err, object) {
                 if (err || !object) return;
-                Object.values(object).forEach(function (x) {
-                    var farm = JSON.parse(x);
-                    var ip = farm.IP;
-                    var names = tools.parseName(farm.Name);
+                Object.keys(object).forEach(function (x) {
+                    let farm = JSON.parse(object[x]);
+                    let ip = farm.IP;
+                    let names = tools.parseName(farm.Name);
                     redisClient.zscan('users:messages:'+names[0], 0, 'match', names[1]+'::*::0', 'count', '1000', function(err, results){
                         if (results[1].length===0){
                             return;
                         } else {
-                            if (miners.indexOf(ip) === -1) {
-                                var miner = new minerapi.interface(ip, 3333, logger);
-                                miners[ip] = miner;
+                            if (Object.keys(miners).indexOf(x) === -1) {
+                                let miner = new minerapi.interface(ip, 3333, logger);
+                                miners[x] = miner;
                                 miner.init();
                             }
                             for (index = 0; index < results[1].length; index += 2) {
-                                var message = JSON.parse(results[1][index].split('::')[1]);
-                                var time = results[1][index+1];
-                                sendCommand(ip,message);
-                                redisClient.zrem('users:messages:' + names[0], [names[1], JSON.stringify(message), 0].join('::'), function (err, res) {
-                                    redisClient.zadd('users:messages:' + names[0], time, [names[1], JSON.stringify(message), Math.floor(Date.now() / 1000)].join('::'), function (err, results) {
+                                let message = JSON.parse(results[1][index].split('::')[1]);
+                                let time = results[1][index+1];
+                                if (time >= (Date.now() - 5 * 60 * 1000) / 1000) {
+                                    sendCommand(x, message, names);
+                                    redisClient.zrem('users:messages:' + names[0], [names[1], JSON.stringify(message), 0].join('::'), function (err, res) {
+                                        redisClient.zadd('users:messages:' + names[0], time, [names[1], JSON.stringify(message), Math.floor(Date.now() / 1000)].join('::'), function (err, results) {
+                                        });
                                     });
-                                });
+                                }
                             }
                         }
                     })
@@ -116,17 +120,17 @@ module.exports = function(logger ){
         });
     };
 
-    var processReceiveCommand = function()
+    let processReceiveCommand = function()
     {
         Object.keys(poolConfigs).forEach(function(coin) {
-            var poolOptions = poolConfigs[coin];
-            var curcoin = poolOptions.coin.name;
+            let poolOptions = poolConfigs[coin];
+            let curcoin = poolOptions.coin.name;
 
             redisClient.hgetall(curcoin + ":liveStat", function (err, object) {
                 if (err || !object) return;
                 Object.values(object).forEach(function (x) {
-                    var farm = JSON.parse(x);
-                    var names = tools.parseName(farm.Name);
+                    let farm = JSON.parse(x);
+                    let names = tools.parseName(farm.Name);
                     _public("messages", { login: farm.Name }, function (err, results) {
                         if (err) return;
 
@@ -140,8 +144,8 @@ module.exports = function(logger ){
         });
     };
 
-    function sendCommand(ip, command) {
-        var miner = miners[ip];
+    function sendCommand(x, command, names) {
+        let miner = miners[x];
         switch(command.cmd){
             case 'restart': {
                 miner.cmd('miner_restart',[]);
@@ -149,10 +153,12 @@ module.exports = function(logger ){
             }
             case 'stop': {
                 miner.cmd('control_gpu',['-1','0']);
+                portalStats.stopFarm(names[0], names[1], function(result) {});
                 return;
             }
             case 'start': {
                 miner.cmd('control_gpu',['-1','1']);
+                portalStats.startFarm(names[0], names[1], function(result) {});
                 return;
             }
             case 'reboot': {
@@ -186,7 +192,7 @@ module.exports = function(logger ){
     }
 
     function _private(method, parameters, callback){
-        var options;
+        let options;
         parameters.secret = crypto.createHmac('sha256', portalConfig.secret).update(portalConfig.salt).digest('hex');
         parameters.nonce = nonce();
         options = {
@@ -199,7 +205,7 @@ module.exports = function(logger ){
     }
 
     function _public(method, parameters, callback){
-        var options;
+        let options;
 
         parameters.nonce = nonce();
         options = {

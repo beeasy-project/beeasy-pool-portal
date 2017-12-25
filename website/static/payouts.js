@@ -15,50 +15,53 @@ function tryLogout(){
 }
 
 function tryPendingpayouts(){
-    apiRequest('pendingpayouts', {}, function(response){
+    let username =  $('#username').val();
+    let isenougth = $('#isenougth').is( ":checked" ) ? 1 : 0;
+    apiRequest('pendingpayouts', {username: username, isenougth: isenougth}, function(response){
         showPayouts(response.result);
     });
 }
 
-var transactions = {};
-var showPayouts = function(payouts){
+let transactions = {};
+let showPayouts = function(payouts){
     transactions = payouts;
-    var tbl = Object.keys(payouts).map(function(payout){
-        var amount =  0;
+    let tbl = Object.keys(payouts).map(function(payout){
+        let res =  payouts[payout];
 
         return '<tr><td>'+ payout + '</td><td>'+
-            payouts[payout].address + '</td><td>' +
-            payouts[payout].total_amount+ '</td><td>' +
-            payouts[payout].amount+ '</td><td>' +
-            payouts[payout].amount_affiliate + '</td><td>' +
-                payouts[payout].payoffs.map(function(x){
-                    return x.subject;
-                }).join("<br>") +
-
-            '</td><td>' +
-            ( payouts[payout].address !== 'undefined' ? '<a href="javascript:void(0)" onclick=payTo(\'' + payout + '\')>Pay</a>' : '') +
+            wrapForTextClip(res.address,res.address) + '</td><td>' +
+            parseFloat(res.total_amount).toFixed(5) + '</td><td>' +
+            parseFloat(res.amount).toFixed(5) + '</td><td>' +
+            res.amount_affiliate.toFixed(5) + '</td><td>' +
+            res.payoffs.map(function(x){
+                return x.subject;
+            }).join("<br>") + '</td><td>' +
+            ( payouts[payout].address !== 'undefined' &&  payouts[payout].status === 0 ? '<a href="javascript:void(0)" onclick=payTo(\'' + payout + '\')>Pay</a>' :  payouts[payout].status === 1 ? 'in process' : '') +
             '</td></tr>';
     }).join('');
     $('#payouts').html(tbl);
+
+    $('#tblpayouts>table').tablesaw().data( "tablesaw" ).refresh();
 };
 
 function payTo(transaction)
 {
     apiRequest("payto",{coin : "ethereum", transaction : transactions[transaction]}, function(response) {
         alert(JSON.stringify(response));
+        $('#searchButton').click();
     });
 
 }
 
 function apiRequest(func, data, callback){
-    var httpRequest = new XMLHttpRequest();
+    let httpRequest = new XMLHttpRequest();
     httpRequest.onreadystatechange = function(){
         if (httpRequest.readyState === 4 && httpRequest.responseText){
             if (httpRequest.status === 401){
                 alert('Incorrect Password');
             }
             else{
-                var response = JSON.parse(httpRequest.responseText);
+                let response = JSON.parse(httpRequest.responseText);
                 callback(response);
             }
         }
@@ -73,5 +76,12 @@ $( document ).ready(function(){
     $('#adminLogout').click( function(event){
         event.preventDefault();
         tryLogout();
+    });
+    $('#filterForm').submit( function(event){
+        event.preventDefault();
+        tryPendingpayouts();
+    });
+    $('#resetButton').click( function(){
+        checkSwitchery(document.querySelector('#isenougth'), true);
     });
 });

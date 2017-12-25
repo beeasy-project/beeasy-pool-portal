@@ -22,7 +22,7 @@ module.exports = function(logger, portalConfig){
 
     var mailOptions = {
         from: 'cryptocompanyltd@gmail.com', // sender address
-        to: 'cryptocompanyltd@gmail.com', // list of receivers
+        to: 'contact@easypool.me', // list of receivers
         subject: 'Feedback', // Subject line
         html: mailTemplate // html body
     };

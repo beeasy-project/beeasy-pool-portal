@@ -1,19 +1,19 @@
-var hashrate=[];
-var connections=[];
-var gpuhashrate=[];
-var gputemperature=[];
-var gpufan=[];
-var poolHashrateData=[];
-var gpuHashrateData=[];
-var gpuTemperatureData=[];
-var gpuFanData=[];
+let hashrate=[];
+let connections=[];
+let gpuhashrate=[];
+let gputemperature=[];
+let gpufan=[];
+let poolHashrateData=[];
+let gpuHashrateData=[];
+let gpuTemperatureData=[];
+let gpuFanData=[];
 
-var poolHashrateChart;
-var gpuHashrateChart;
-var gpuTemperatureChart;
-var gpuFanChart;
+let poolHashrateChart;
+let gpuHashrateChart;
+let gpuTemperatureChart;
+let gpuFanChart;
 
-function GetConnectionStat( hash ){
+function GetConnectionStat( hash, fname ){
     apiRequest('liveconnect', {connectionhash : hash }, function(response){
         connections = [];
 
@@ -29,9 +29,9 @@ function GetConnectionStat( hash ){
 
 
 
-        for( var r in response)
+        for( let r in response)
         {
-            var curr = JSON.parse(response[r]);
+            let curr = JSON.parse(response[r]);
             if( curr.Stat != undefined && curr.Stat.hashrate != undefined)
                 connections.push([curr.Time, curr.Stat.hashrate*1000]);
 
@@ -39,53 +39,57 @@ function GetConnectionStat( hash ){
             if( curr.Stat != undefined && curr.Stat.gpuhashrate != undefined) {
                 if( gpuhashrate.length == 0 )
                 {
-                    for (var i = 0; i < curr.Stat.gpuhashrate.length; i++)
+                    for (let i = 0; i < curr.Stat.gpuhashrate.length; i++)
                         gpuhashrate.push(new Array());
                 }
-                for (var i = 0; i < curr.Stat.gpuhashrate.length; i++) {
+                for (let i = 0; i < curr.Stat.gpuhashrate.length; i++) {
                     gpuhashrate[i].push([curr.Time, curr.Stat.gpuhashrate[i]]);
                 }
             }
             if( curr.Stat != undefined && curr.Stat.temperature != undefined) {
                 if( gputemperature.length == 0 )
                 {
-                    for (var i = 0; i < curr.Stat.temperature.length; i++)
+                    for (let i = 0; i < curr.Stat.temperature.length; i++)
                         gputemperature.push(new Array());
                 }
-                for (var i = 0; i < curr.Stat.temperature.length; i++) {
+                for (let i = 0; i < curr.Stat.temperature.length; i++) {
                     gputemperature[i].push([curr.Time, curr.Stat.temperature[i]]);
                 }
             }
             if( curr.Stat != undefined && curr.Stat.speed != undefined) {
                 if( gpufan.length == 0 )
                 {
-                    for (var i = 0; i < curr.Stat.speed.length; i++)
+                    for (let i = 0; i < curr.Stat.speed.length; i++)
                         gpufan.push(new Array());
                 }
-                for (var i = 0; i < curr.Stat.speed.length; i++) {
+                for (let i = 0; i < curr.Stat.speed.length; i++) {
                     gpufan[i].push([curr.Time, curr.Stat.speed[i]]);
                 }
             }
         }
 
-        poolHashrateData.push({key : hash, values : connections});
+        poolHashrateData.push({key : fname, values : connections});
 
-        for( var a = 0; a< gpuhashrate.length; a++ )
+        for( let a = 0; a< gpuhashrate.length; a++ )
         {
             gpuHashrateData.push( {key : "GPU"+a, values : gpuhashrate[a]});
         }
 
-        for( var a = 0; a< gputemperature.length; a++ )
+        for( let a = 0; a< gputemperature.length; a++ )
         {
             gpuTemperatureData.push( {key : "GPU"+a, values : gputemperature[a]});
         }
 
-        for( var a = 0; a< gpufan.length; a++ )
+        for( let a = 0; a< gpufan.length; a++ )
         {
             gpuFanData.push( {key : "GPU"+a, values : gpufan[a]});
         }
 
         TriggerChartUpdates();
+
+        $('html, body').stop().animate({
+            'scrollTop': $('#charts').offset().top-70
+        }, 1000, 'swing');
     });
 }
 
@@ -201,33 +205,23 @@ function displayCharts(){
         return gpuFanChart;
     });
 }
-function getReadableHashRateString(hashrate){
-    var i = -1;
-    var byteUnits = [ ' KH', ' MH', ' GH', ' TH', ' PH' ];
-    do {
-        hashrate = hashrate / 1024;
-        i++;
-    } while (hashrate > 1024);
-    hashrate = Math.round(hashrate * 100) / 100;
-    return hashrate + byteUnits[i];
-}
 
 function timeOfDayFormat(timestamp){
-    var dStr = d3.time.format('%I:%M %p')(new Date(timestamp));
+    let dStr = d3.time.format('%I:%M %p')(new Date(timestamp));
     if (dStr.indexOf('0') === 0) dStr = dStr.slice(1);
     return dStr;
 }
 
 function getSummaryStats(){
     $.post('/api/admin/historystats', function(response){
-        var connections=[];
+        let connections=[];
         poolHashrateData = [];
         gpuHashrateData=[];
         gpuTemperatureData=[];
         gpuFanData=[];
-        for( var r in response.result)
+        for( let r in response.result)
         {
-            var curr = response.result[r];
+            let curr = response.result[r];
             if( curr.Time != undefined && curr.hashrate != undefined)
                 connections.push([curr.Time, curr.hashrate]);
         }
@@ -237,7 +231,7 @@ function getSummaryStats(){
     }, "json");
 }
 
-var init = function () {
+let init = function () {
     displayCharts();
     getSummaryStats();
     nv.utils.windowResize(TriggerChartUpdates);

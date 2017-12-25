@@ -7,6 +7,7 @@ var Stratum = require('stratum-pool');
 var util = require('stratum-pool/lib/util.js');
 var bignum = require('bignum');
 var apiExt = require('./apiExt.js');
+var tools = require('./addtools.js');
 var extApi;
 
 module.exports = function(logger){
@@ -37,7 +38,7 @@ module.exports = function(logger){
             var logSystem = 'Payments';
             var logComponent = coin;
 
-            logger.debug(logSystem, logComponent, 'Payment processing setup to run every '
+            logger.special(logSystem, logComponent, 'Payment processing setup to run every '
                 + processingConfig.paymentInterval + ' second(s) with daemon ('
                 + processingConfig.daemon.user + '@' + processingConfig.daemon.host + ':' + processingConfig.daemon.port
                 + ') and redis (' + poolOptions.redis.host + ':' + poolOptions.redis.port + ')');
@@ -54,6 +55,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
 
     var coin = poolOptions.coin.name;
+    var coinsymb = poolOptions.coin.symbol;
     var processingConfig = poolOptions.paymentProcessing;
 
     var logSystem = 'Payments';
@@ -144,12 +146,110 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                 throw e;
             }
         }, processingConfig.paymentInterval * 1000);
+        setInterval(function(){
+            try {
+                checkBalance();
+            } catch(e){
+                throw e;
+            }
+        }, 60 * 1000);
+        let _histcounter = -1;
+        setInterval(function(){
+            try {
+                computeBalance(_histcounter++);
+            } catch(e){
+                throw e;
+            }
+        }, 2 * 60 * 1000);
         setTimeout(checkNewPayout, 100);
+        setTimeout(checkBalance, 100);
+        setTimeout(computeBalance(_histcounter++), 100);
 
         setupFinished(true);
     });
 
+    var checkBalance = function()
+    {
+        extApi.getBalance(coin, function(err, result){
+            if( !err && models ) {
+                models.Pbalance.findCreateFind({where: {coin: coin}}).spread((pbalance, created) => {
+                    var poolbalance = parseFloat(result.data);
+                    if (poolbalance>0) {
+                        if (poolbalance >= pbalance.value) {
+                            pbalance.value = poolbalance;
+                            pbalance.basevalue = poolbalance;
+                        } else {
+                            pbalance.value = parseFloat(pbalance.basevalue) + poolbalance;
+                        }
+                        pbalance.save()
+                    }
+                })
+            }
+        });
+    };
 
+    var computeBalance = function(histcounter)
+    {
+        if (!models) return;
+
+        async.waterfall([
+            function(callback){
+                models.Pbalance.findOne({ where: {coin: coin} }).then( pbalance => {
+                    if (pbalance){
+                        callback(null, pbalance.value)
+                    } else {
+                        callback(null, 0)
+                    }
+                });
+            }, function (poolbalance, callback) {
+                var totalshares = 0;
+                var usershares = {};
+                var userbalance = {};
+                redisClient.hgetall( coin + ":shares:roundCurrent", function(err, result){
+                    if (err) callback(err);
+                    for( var r in result )
+                    {
+                        if (typeof usershares[tools.parseName(r)[0].toLowerCase()] === 'undefined'){
+                            usershares[tools.parseName(r)[0].toLowerCase()] = parseFloat(result[r]);
+                        } else {
+                            usershares[tools.parseName(r)[0].toLowerCase()] += parseFloat(result[r]);
+                        }
+                        totalshares += parseFloat(result[r]);
+                    }
+
+                    Object.keys(usershares).forEach(function(user) {
+                        userbalance[user] = {};
+                        userbalance[user].balance = totalshares > 0 ? poolbalance * (usershares[user] / totalshares) : 0;
+                        userbalance[user].shares = usershares[user];
+                        userbalance[user].percents = totalshares > 0 ? usershares[user] / totalshares : 0;
+                    });
+
+                    callback(null, userbalance);
+                });
+            }
+        ], function(err, balances){
+            models.User.findAll().then( users => {
+                let nowTime = Date.now();
+                users.forEach(function(user) {
+                    models.Sharebalance.findCreateFind({where: {user:user.name, coin: coin, sym: coinsymb}}).spread((sharebalance, created) => {
+                        sharebalance.value = balances[user.name.toLowerCase()] ? balances[user.name.toLowerCase()].balance : 0;
+                        sharebalance.shares = balances[user.name.toLowerCase()] ? balances[user.name.toLowerCase()].shares : 0;
+                        sharebalance.percents = balances[user.name.toLowerCase()] ? balances[user.name.toLowerCase()].percents : 0;
+                        if (histcounter % 2 === 0) {
+                            models.Sharehist.create({
+                                coin: sharebalance.coin,
+                                shares: sharebalance.shares > sharebalance.prevshares ? sharebalance.shares - sharebalance.prevshares : sharebalance.shares,
+                                time: nowTime,
+                                user: user.name
+                            });
+                            sharebalance.prevshares = sharebalance.shares;
+                        }
+                        sharebalance.save()
+                    })
+                });
+            })
+        });
+    };
 
     var checkNewPayout = function()
     {
@@ -164,7 +264,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
             });
         },function(balance, callback){
             extApi.getPayments(coin, function( err, result) {
-                if(err) callback(true);
+                if(err || !result || !result.data) return callback(true);
 
                 redisClient.multi([
                     ['smembers', coin + ':blocksPending'],
@@ -192,11 +292,11 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
                     newblocks = newblocks.sort(function(a,b){return a.date - b.date} );
 
-                    callback(null, newblocks)
+                    callback(null, newblocks, balance)
                 });
             });
 
-        }, function(newblocks, callback){
+        }, function(newblocks, balance, callback){
             var redisCommands=[];
             var ethCommands=[];
             var renamecommand;
@@ -205,7 +305,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                     newblocks.forEach( function(x){
                         ethCommands.push( function(callback) {
                             extApi.paymentCmd(coin, 'eth_getTransactionByHash', [x.txHash], function (result) {
-                                if (result.error) {
+                                if (result.error || !result.response) {
                                     callback(true);
                                     return;
                                 }
@@ -214,6 +314,13 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                                 {
                                     lastblock = result.response.blockNumber;
                                     renamecommand = ['rename', coin + ':shares:roundCurrent', coin + ':shares:round' + result.response.blockNumber];
+                                    if (models){
+                                        models.Pbalance.findCreateFind({where: {coin: coin}}).spread((pbalance, created) => {
+                                            pbalance.basevalue = balance;
+                                            pbalance.value = balance;
+                                            pbalance.save()
+                                        })
+                                    }
                                 }
 
                                 callback();
@@ -267,16 +374,53 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
         var startRPCTimer = function(){ startTimeRPC = Date.now(); };
         var endRPCTimer = function(){ timeSpentRPC += Date.now() - startTimeRedis };
+        var userlist = [];
 
         async.waterfall([
 
+            function(callback){
+
+                if (models){
+                    models.User.findAll()
+                    .then( users => {
+                        userlist = (users || []);
+                    })
+                    .then( () => {
+                        models.Ubalance.findAll({where: {coin: coin}}).then(balances => {
+                            var workers = {};
+                            balances.forEach(function (balance) {
+                                workers[balance.name] = {balance: coinsToSatoshies(parseFloat(balance.value))};
+                            });
+                            callback(null, workers);
+                        })
+                    })
+                } else {
+                    startRedisTimer();
+                    redisClient.multi([
+                        ['hgetall', coin + ':balances']
+                    ]).exec(function (error, results) {
+                        endRedisTimer();
+                        if (error) {
+                            logger.error(logSystem, logComponent, 'Could not get blocks from redis ' + JSON.stringify(error));
+                            callback(true);
+                            return;
+                        }
+                        var workers = {};
+                        for (var w in results[0]) {
+                            workers[w] = {balance: coinsToSatoshies(parseFloat(results[0][w]))};
+                        }
+
+                        callback(null, workers);
+                    });
+                }
+            },
+
             /* Call redis to get an array of rounds - which are coinbase transactions and block heights from submitted
                blocks. */
-            function(callback){
+            function(workers, callback){
 
                 startRedisTimer();
                 redisClient.multi([
-                    ['hgetall', coin + ':balances'],
                     ['smembers', coin + ':blocksPending']
                 ]).exec(function(error, results){
                     endRedisTimer();
@@ -287,14 +431,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                         return;
                     }
 
-
-
-                    var workers = {};
-                    for (var w in results[0]){
-                        workers[w] = {balance: coinsToSatoshies(parseFloat(results[0][w]))};
-                    }
-
-                    var rounds = results[1].map(function(r){
+                    var rounds = results[0].map(function(r){
                         var details = r.split(':');
                         return {
                             blockHash: details[0],
@@ -338,31 +475,15 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                     var addressAccount = account;
 
                     txDetails.forEach(function(tx, i){
-
-
                         var round = rounds[i];
 
- /*                       if (tx.error && tx.error.code === -5){
-                            logger.warning(logSystem, logComponent, 'Daemon reports invalid transaction: ' + round.txHash);
-                            round.category = 'kicked';
-                            return;
-                        }
-                        else if (!tx.result.details || (tx.result.details && tx.result.details.length === 0)){
-                            logger.warning(logSystem, logComponent, 'Daemon reports no details for transaction: ' + round.txHash);
-                            round.category = 'kicked';
-                            return;
-                        }
-                        else */if (tx.error || !tx.response){
+                        if (tx.error || !tx.response){
                             logger.error(logSystem, logComponent, 'Odd error with gettransaction ' + round.txHash + ' '
                                 + JSON.stringify(tx));
                             return;
                         }
 
-//                        if( tx.result.to == poolOptions.daemons[0].user ) {
-                            var generationTx = tx.response;
-//                        }
-
-
+                        var generationTx = tx.response;
                         if (!generationTx){
                             logger.error(logSystem, logComponent, 'Missing output details to pool address for transaction '
                                 + round.txHash);
@@ -370,11 +491,8 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                         }
 
                         round.category = "generate";
-                        if (round.category === 'generate') {
-                            var curreward = generationTx.amount || generationTx.value;
-                            round.reward = satoshisToCoins(parseInt(curreward.substr(2), 16));
-                        }
-
+                        var curreward = generationTx.amount || generationTx.value;
+                        round.reward = satoshisToCoins(parseInt(curreward.substr(2), 16));
                     });
 
                     var canDeleteShares = function(r){
@@ -431,7 +549,6 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
                     var pendingReward = 0;
 
-//                    rounds.forEach(function(round, i){
                     for( var i =0 ; i <  Object.keys(rounds).length; i++ ){
 
                         var workerShares = allWorkerShares[i];
@@ -447,13 +564,11 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                         round.reward += pendingReward;
                         pendingReward = 0;
 
-
                         switch (round.category){
                             case 'kicked':
                             case 'orphan':
                                 round.workerShares = workerShares;
                                 break;
-
                             case 'generate':
                                 /* We found a confirmed block! Now get the reward for it and calculate how much
                                    we owe each miner based on the shares they submitted during that block round. */
@@ -466,36 +581,25 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                                 for (var workerAddress in workerShares){
                                     var percent = parseFloat(workerShares[workerAddress]) / totalShares;
                                     var workerRewardTotal = Math.floor(reward * percent);
-                                    var worker = workers[workerAddress] = (workers[workerAddress] || {});
+                                    var worker = workers[getProperAddress(workerAddress,userlist)] = (workers[getProperAddress(workerAddress,userlist)] || {});
                                     worker.reward = (worker.reward || 0) + workerRewardTotal;
                                 }
                                 break;
                         }
-                    }; //)
+                    }
 
                     callback(null, workers, rounds, addressAccount);
                 });
             },
 
-            function(workers, rounds, addressAccount, callback) {
+            function(workers, rounds, addressAccount, callback)
+            {
                 if (models){
-                    models.User.findAll({ where: {name: { $in: Object.keys(workers).map(getProperAddress) }},
-                                          include: [ { association: 'Settings', where: {name: "minpayments_"+coin.replace(/\s/gi,'')}, required: false } ]}).then( users => {
-                        Object.keys(workers).forEach(function(w) {
-                            var user = users.filter(user => user.name === getProperAddress(w))
-                            workers[w].minPayment = coinsToSatoshies(parseFloat(user.length === 1 && user[0].Settings.length > 0 ? (user[0].Settings[0].value > minPaymentCoin ? user[0].Settings[0].value : minPaymentCoin) : 0)) || minPaymentSatoshis;
-                        });
-                        callback(null, workers, rounds, addressAccount);
+                    models.Payouts.findAll({where: {status:0, coin: coin}}).then( payouts => {
+                        callback(null, workers, rounds, addressAccount, payouts);
                     })
                 } else {
-                    async.each(Object.keys(workers), function (w, asyncCallback) {
-                        redisClient.hget("users:settings:"+getProperAddress(w), "minpayments_"+coin.replace(/\s/gi,''), function(err, result){
-                            workers[w].minPayment = coinsToSatoshies(parseFloat(result>minPaymentCoin ? result : minPaymentCoin)) || minPaymentSatoshis;
-                            asyncCallback(null)
-                        });
-                    }, function (err) {
-                        callback(null, workers, rounds, addressAccount);
-                    });
+                    callback(null, workers, rounds, addressAccount, []);
                 }
             },
             /* Calculate if any payments are ready to be sent and trigger them sending
@@ -504,7 +608,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
              when deciding the sent balance, it the difference should be -1*amount they had in db,
              if not sending the balance, the differnce should be +(the amount they earned this round)
              */
-            function(workers, rounds, addressAccount, callback) {
+            function(workers, rounds, addressAccount, payouts, callback) {
                 var redisCommands=[];
                 var clients=new Object();
 
@@ -513,8 +617,8 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                     var totalSent = 0;
                     for (var w in workers) {
                         var worker = workers[w];
-                        var address = worker.address = (worker.address || getProperAddress(w));
-                        if( typeof clients[address] == "undefined" ) clients[address] ={address: address, sent: 0, balanceChange : 0, reward : 0, balance : 0};
+                        var address = worker.address = (worker.address || getProperAddress(w,userlist));
+                        if( typeof clients[address] === "undefined" ) clients[address] = {address: address, sent: 0, balanceChange : 0, reward : 0, balance : 0};
                         var client = clients[address];
 
                         worker.balance = worker.balance || 0;
@@ -522,12 +626,12 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
                         var toSendClient = (client.sent + satoshisToCoins(worker.balance) + satoshisToCoins(worker.reward)) * (1 - withholdPercent);
                         var toSend = (satoshisToCoins(worker.balance) + satoshisToCoins(worker.reward) ) * (1 - withholdPercent);
-                        if (toSendClient >= satoshisToCoins(worker.minPayment || minPaymentSatoshis)) {
+                        if (toSendClient >= satoshisToCoins(minPaymentSatoshis) || (toSend > 0 && payouts.find(el => el.name.toLowerCase() === address.toLowerCase()))) {
                             totalSent += toSend;
                             client.sent = addressAmounts[address] = toSendClient;
                             client.balanceChange += satoshisToCoins(worker.balance) * -1;
                             worker.sent = addressAmounts[address] = toSend;
-                            worker.balanceChange += satoshisToCoins(worker.balance) * -1;
+                            worker.balanceChange = satoshisToCoins(worker.balance) * -1;
                             redisCommands.push(['hincrbyfloat', coin + ':payments:pending', worker.address, worker.sent ] );
                         }
                         else {
@@ -545,8 +649,15 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
                     redisClient.multi(redisCommands).exec(function(error, results){
                         if (!error && models) {
+                            let nowTime = Date.now();
                             redisCommands.forEach(function(command) {
-                                 models.Payouts.findOrCreate({where: {name: command[2], coin: command[1].split(':')[0], status:0}}).spread((payout, created) => {
+                                 models.Payouts.findCreateFind({where: {name: command[2], coin: command[1].split(':')[0], status:0, sendedAt:0}}).spread((payout, created) => {
+                                     models.Accrualshist.create({
+                                         coin: payout.coin,
+                                         value: parseFloat(command[3]),
+                                         time: nowTime,
+                                         user: command[2]
+                                     });
                                      return payout.increment('value', {by: parseFloat(command[3])});
                                  })
                             })
@@ -657,10 +768,21 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                             logger.error('Could not write finalRedisCommands.txt, you are fucked.');
                         });
                     } else if (models){
+                        let nowTime = Date.now();
                         balanceUpdateCommands.forEach(function(command) {
-                            models.Ubalance.findOrCreate({where: {name: command[2], coin: command[1].split(':')[0]}}).spread((balance, created) => {
+                            models.Ubalance.findCreateFind({where: {name: command[2], coin: command[1].split(':')[0]}}).spread((balance, created) => {
+                                models.Accrualshist.create({
+                                    coin: balance.coin,
+                                    value: parseFloat(command[3]),
+                                    time: nowTime,
+                                    user: command[2]
+                                });
                                 return balance.increment('value', {by: parseFloat(command[3])});
                             })
+                        });
+                        models.Sharehist.destroy({
+                            where: {},
+                            truncate: true
                         })
                     }
                     callback();
@@ -668,7 +790,7 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
             }
 
         ], function(){
-
+            computeBalance();
             var paymentProcessTime = Date.now() - startPaymentProcess;
             logger.debug(logSystem, logComponent, 'Finished interval - time spent: '
                 + paymentProcessTime + 'ms total, ' + timeSpentRedis + 'ms redis, '
@@ -678,10 +800,10 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
     };
 
 
-    var getProperAddress = function(address){
+    var getProperAddress = function(address,userlist){
         var Address = address;
-        if( address.indexOf("/") != -1 )Address = address.substr(0, address.indexOf("/"));
-        if( Address.length == 40 )
+        if( address.indexOf("/") !== -1 ) Address = address.substr(0, address.indexOf("/"));
+        if( Address.length === 40 )
         {
             try {
                 new Buffer(workerName, 'hex');
@@ -690,8 +812,12 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
 
             }
         }
-
-        return Address;
+        if(models){
+            var user = userlist.find(el => el.name.toLowerCase() === Address.toLowerCase());
+            return (user ? user.name : Address)
+        } else {
+            return Address;
+        }
     };
 
 

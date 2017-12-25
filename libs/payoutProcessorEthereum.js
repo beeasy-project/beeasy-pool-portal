@@ -80,7 +80,11 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                     "to": transaction.address.substr(0),
                     "value": "0x" + coinsToSatoshies(transaction.amount).toString(16)
                 };
-                sendTransaction(command, function (result) {
+                sendTransaction(command, function (err, result) {
+                    if (err) {
+                        logger.error(logSystem, logComponent, JSON.stringify(err));
+                        return;
+                    }
                     var rediscommands = [
                         ['hset', coin + ':payments:done', result.response, JSON.stringify({
                             tx: result.response,
@@ -128,30 +132,44 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
                     "to": transaction.address.substr(0),
                     "value": "0x" + coinsToSatoshies(transaction.amount).toString(16)
                 };
-                sendTransaction(command, function (result) {
-                    payout.tx = result.response;
-                    payout.sendedAt = Date.now();
-                    payout.status = 2;
-                    models.sequelize.transaction(function (t) {
-                        return payout.save({transaction: t}).then(function (payout) {
-                            return models.Payments.create({
-                                coin: coin,
-                                user: transaction.user,
-                                tx: result.response,
-                                to: transaction.address,
-                                amount: transaction.amount,
-                                time: Date.now(),
-                                transaction: transaction
-                            }, {
-                                include: [{
-                                    model: models.Transactions,
-                                    as: 'transaction'
-                                }],
-                                transaction: t
-                            });
+                models.sequelize.transaction({
+                    isolationLevel: models.Sequelize.Transaction.ISOLATION_LEVELS.SERIALIZABLE
+                }, function (t) {
+                    return payout.reload({transaction: t, lock: t.LOCK.UPDATE}).then( () => {
+                        if(payout.status !== 1) {
+                            throw new Error();
+                        }
+                        return sendTransactionPromise(command).then( result => {
+                            return Promise.all(
+                                transaction.payoffs.map(function(r){
+                                    models.Ubalance.findOrCreate({where: {name: r.to, coin: coin}, transaction: t }).spread((balance, created) => {
+                                        return balance.increment('value', {by: parseFloat(r.amount), transaction: t});
+                                    })
+                                })
+                            ).then(function (user) {
+                                payout.tx = result.response;
+                                payout.sendedAt = Date.now();
+                                payout.status = 2;
+                                return payout.save({transaction: t}).then(function (payout) {
+                                    return models.Payments.create({
+                                        coin: coin,
+                                        user: transaction.user,
+                                        tx: result.response,
+                                        to: transaction.address,
+                                        amount: transaction.amount,
+                                        time: Date.now(),
+                                        transaction: transaction
+                                    }, {
+                                        include: [{
+                                            model: models.Transactions,
+                                            as: 'transaction'
+                                        }],
+                                        transaction: t
+                                    });
+                                });
+                            })
                         });
-
-                    });
+                    })
                 });
             } else {
                 logger.error(logSystem, logComponent, "Incorrect transaction amount " + curam.toFixed(10) + " instead of " + curval.toFixed(10));
@@ -159,27 +177,37 @@ function SetupForPool(logger, poolOptions, isSql, setupFinished){
         })
     };
 
-    var sendTransaction = function (command, callback) {
+    function sendTransactionPromise(command){
+        return new Promise(function(resolve,reject){
+            sendTransaction(command,function(err,data){
+                if(err !== null) return reject(err);
+                resolve(data);
+            });
+        });
+    }
+
+    let sendTransaction = function (command, callback) {
         daemon.isOnline(function (bOnline) {
             if (bOnline){
                 daemon.cmd('eth_sendTransaction', [command], function (result) {
                     logger.debug(logSystem, logComponent, "eth_sendTransaction : " + JSON.stringify(result));
                     if (result.error) {
                         logger.error(logSystem, logComponent, "eth_sendTransaction error : " + JSON.stringify(result));
-                        return;
+                        return callback(result.error,result);
                     }
-                    callback(result);
+                    callback(null,result);
                 }, true, true);
             } else {
                 logger.error(logSystem, logComponent, "Demon is not responding. Try again later.");
+                return callback("Demon is not responding. Try again later.",result);
             }
         });
     };
 
     process.on('message', function( msg ){
         logger.debug(logSystem, logComponent, 'Payout processor message ' + JSON.stringify(msg));
-        var transaction = msg.transaction;
-        if(msg.cmd == "payout") {
+        let transaction = msg.transaction;
+        if(msg.cmd === "payout") {
             if(models)
                 processMessageSql(transaction);
             else

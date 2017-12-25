@@ -26,22 +26,23 @@
               </style>
               <div class="col-sm-12">
                 <div class="card-box">
-                  <p id="farmselectorwrapper" class="text-muted font-13"></p>
+                  <div class="dropdown pull-right" id="farmselectorwrapper"></div>
+                  <h3 class="header-title m-t-0 m-b-20 text-success">Статистика для(выбор риги)</h3>
                   <div class="topCharts">
                     <div class="chartWrapper" id="poolHashrateCnt">
-                      <div class="chartLabel">Hashrate</div>
+                      <div class="chartLabel">Хешрейт</div>
                       <div class="chartHolder"><svg id="userHashrate"></svg></div>
                     </div>
                     <div class="chartWrapper" id="gpuHashrateCnt">
-                      <div class="chartLabel">GPU Hashrate</div>
+                      <div class="chartLabel">GPU хешрейт</div>
                       <div class="chartHolder"><svg id="gpuHashrate"></svg></div>
                     </div>
                     <div class="chartWrapper" id="gpuTemperatureCnt">
-                      <div class="chartLabel">GPU Temperature</div>
+                      <div class="chartLabel">GPU температура</div>
                       <div class="chartHolder"><svg id="gpuTemperature"></svg></div>
                     </div>
                     <div class="chartWrapper" id="gpuFanCnt">
-                      <div class="chartLabel">GPU Fan</div>
+                      <div class="chartLabel">GPU кулер</div>
                       <div class="chartHolder"><svg id="gpuFan"></svg></div>
                     </div>
                   </div>
@@ -50,7 +51,7 @@
               <script src="/static/user.js"></script>
               <script>
                 $(document).ready(function(){
-                  $('#page-title').html('Graphs');
+                  $('#page-title').html('Графики');
                   document.querySelector('body').appendChild(document.createElement('script')).src = '/static/userstats.js';
                   apiRequest('livestats', {}, function(response){
                     showSelector( response.result, response.coins);

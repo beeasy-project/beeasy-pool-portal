@@ -14,7 +14,8 @@ module.exports = function(sequelize, DataTypes) {
             get() {
                 return this.getDataValue('time') / 1000;
             }
-        }
+        },
+        is_notice: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue:0}
     }, {
         tableName: 'payments',
         timestamps: false

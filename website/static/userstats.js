@@ -208,7 +208,8 @@ function getReadableHashRateString(hashrate){
         hashrate = hashrate / 1024;
         i++;
     } while (hashrate > 1024);
-    return Math.round(hashrate) + byteUnits[i];
+    hashrate = i > 1 ? Math.round(hashrate * 100) / 100 : Math.round(hashrate);
+    return hashrate + byteUnits[i];
 }
 
 function timeOfDayFormat(timestamp){
@@ -234,21 +235,23 @@ function getSummaryStats(){
         poolHashrateData.push({key : "Calculated hashrate", values : connections});
         TriggerChartUpdates();
     }, "json");
-    if (document.getElementById('farmselectorButton')) $('#farmselectorButton').html('Summary<span class="caret"></span>');
+    if (document.getElementById('farmselectorButton')) $('#farmselectorButton').html('Сводка<span class="caret"></span>');
 }
 
 var init = function () {
     displayCharts();
     getSummaryStats();
-    $.getJSON('/api/pool_stats', function(data){
+    $.getJSON('/api/pool_stats', function (data) {
         statData = data;
         TriggerChartUpdates();
     });
     nv.utils.windowResize(TriggerChartUpdates);
-    statsSource.addEventListener('message', function(e) {
-        var stats = JSON.parse(e.data);
-        statData.push(stats);
-        displayCharts();
-        TriggerChartUpdates();
-    });
+    if ("EventSource" in window){
+        statsSource.addEventListener('message', function (e) {
+            var stats = JSON.parse(e.data);
+            statData.push(stats);
+            displayCharts();
+            TriggerChartUpdates();
+        });
+    }
 }();
